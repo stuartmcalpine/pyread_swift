@@ -1,0 +1,58 @@
+# Author - Stuart McAlpine - December 2022
+
+name: read_swift CI
+
+# How does the workflow get triggered?
+on:
+  # Triggers when push/pull-request made to the main branch.
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+# List of jobs for this workflow.
+jobs:
+  ci-with-pytest:
+
+    # Our strategy lists the OS and Python versions we want to test on.
+    strategy:
+
+      # Don't quit all jobs if only one job fails.
+      fail-fast: false
+      
+      matrix:
+        python-version: [3.9]
+        os: [ubuntu-20.04]
+  
+    # What operating system is this job running on?
+    runs-on: ${{ matrix.os }}
+
+    # Our CI steps for this job.
+    steps:
+      # Print information about his job.
+      - run: echo "Running on ${{ matrix.os }} with Python ${{ matrix.python-version }}"
+     
+      # Check out this repository code.
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      # Install Python.
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Install dependencies.
+      - name: Install pip and pytest
+        run: |
+          cd read_swift
+          python -m pip install --upgrade pip
+		  python -m pip install .
+          python -m pip install pytest
+      # Perform unit tests.
+      - name: Test with pytest
+        run: |
+		  cd tests
+		  pytest

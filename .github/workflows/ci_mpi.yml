@@ -57,12 +57,12 @@ jobs:
         run: |
           python -m pip uninstall -y h5py
           sudo apt-get install libhdf5-mpi-dev
-          python -m pip install h5py --no-binary ":all:"
+          CC=mpicc HDF5_MPI="ON" python -m pip install h5py --no-binary ":all:"
 
       # Perform unit tests.
       - name: Test with pytest
         run: |
-          python -m pip install pytest, pytest-mpi
+          python -m pip install pytest pytest-mpi
           cd tests
           bash get_ics.sh
           mpirun -np 2 pytest

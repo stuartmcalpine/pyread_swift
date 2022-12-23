@@ -49,10 +49,11 @@ jobs:
         run: |
           cd read_swift
           python -m pip install --upgrade pip
-		  python -m pip install .
-          python -m pip install pytest
+	  python -m pip install .
+
       # Perform unit tests.
       - name: Test with pytest
         run: |
-		  cd tests
-		  pytest
+	  python -m pip install pytest
+	  cd tests
+	  pytest

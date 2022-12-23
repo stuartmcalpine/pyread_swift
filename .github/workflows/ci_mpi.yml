@@ -65,4 +65,4 @@ jobs:
           python -m pip install pytest pytest-mpi
           cd tests
           bash get_ics.sh
-          mpirun -np 2 pytest
+          mpirun -np 2 pytest --with-mpi

@@ -45,11 +45,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       # Install dependencies.
-      - name: Install pip and pytest
+      - name: Install pip and read_swift
         run: |
-          pwd
-          ls
-          cd read_swift
           python -m pip install --upgrade pip
           python -m pip install .
 

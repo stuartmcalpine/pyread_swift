@@ -1,3 +1,24 @@
 [build-system]
-requires = ["setuptools ~= 58.0"]
+requires = ["setuptools >= 60.0"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "read_swift"
+description = "Package to read SWIFT simulation snapshots"
+keywords = ["swift", "simulations", "mpi"]
+license = {text = "BSD 3-Clause License"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    'numpy',
+    'h5py'
+]
+requires-python = ">=3.7"
+version = "1.0.0"
+
+[tool.setuptools.packages.find]
+where = ["src"]  # list of folders that contain the packages (["."] by default)
+#include = ["my_package*"]  # package names should match these glob patterns (["*"] by default)
+#exclude = ["my_package.tests*"]  # exclude packages matching these glob patterns (empty by default)
+#namespaces = false  # to disable scanning PEP 420 namespaces (true by default)

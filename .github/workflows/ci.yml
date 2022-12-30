@@ -41,6 +41,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Install MPI.
+      - name: Setup MPI
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: "openmpi"
+
       # Install dependencies.
       - name: Install pip and read_swift
         run: |

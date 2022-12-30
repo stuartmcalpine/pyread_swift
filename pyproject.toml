@@ -13,7 +13,8 @@ classifiers = [
 dependencies = [
     'numpy',
     'h5py',
-    'mpi4py'
+    'mpi4py',
+    'importlib.metadata; python_version <= "3.7"'
 ]
 requires-python = ">=3.7,<=3.11"
 version = "1.0.0"

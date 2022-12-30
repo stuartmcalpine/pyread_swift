@@ -56,7 +56,7 @@ jobs:
       # Perform unit tests.
       - name: Test with pytest
         run: |
-          python3 -m pip install pytest
+          python3 -m pip install pytest pytest-mpi
           cd tests
           bash get_ics.sh
           pytest

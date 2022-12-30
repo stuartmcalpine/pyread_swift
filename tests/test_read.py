@@ -2,6 +2,7 @@ from read_swift import SwiftSnapshot
 import os 
 import numpy as np
 import pytest
+from mpi4py import MPI
 
 SWIFT_FNAME = "EAGLE_ICs_6.hdf5"
 NPARTS = [800648, 830584, 0, 0, 29847, 53]
@@ -37,8 +38,7 @@ def test_read():
         assert coords.shape == (NPARTS[i], 3), f"Bad read parttype {i} (2)"
     
 @pytest.mark.mpi
-def test_read_mpi():
-    from mpi4py import MPI
+def test_read_mpi(min_size=2):
 
     comm = MPI.COMM_WORLD
     assert comm.size > 1

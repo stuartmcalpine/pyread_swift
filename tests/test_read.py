@@ -21,7 +21,7 @@ def test_read():
     _check_we_have_snapshot()
 
     # Swift read object.
-    swift = swift_snapshot("EAGLE_ICs_6.hdf5")
+    swift = SwiftSnapshot("EAGLE_ICs_6.hdf5")
     bs = swift.HEADER["BoxSize"]
 
     for i in range(len(NPARTS)):
@@ -47,7 +47,7 @@ def test_read_mpi():
     _check_we_have_snapshot()
 
     # Swift read object.
-    swift = swift_snapshot("EAGLE_ICs_6.hdf5", comm=comm)
+    swift = SwiftSnapshot("EAGLE_ICs_6.hdf5", comm=comm)
     bs = swift.HEADER["BoxSize"]
 
     for i in range(len(NPARTS)):
@@ -73,7 +73,7 @@ def test_read_header():
     _check_we_have_snapshot()
 
     # Swift read object.
-    swift = swift_snapshot("EAGLE_ICs_6.hdf5")
+    swift = SwiftSnapshot("EAGLE_ICs_6.hdf5")
 
     assert swift.HEADER["BoxSize"].dtype == np.float64
     assert swift.HEADER["BoxSize"] == 4.235625

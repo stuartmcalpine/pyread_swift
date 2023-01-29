@@ -62,7 +62,7 @@ class SwiftSnapshot:
         self,
         fname,
         comm=None,
-        verbose=True,
+        verbose=False,
         mpi_read_format="collective",
         max_concur_io=64,
     ):

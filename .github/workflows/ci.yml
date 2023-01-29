@@ -14,27 +14,6 @@ on:
 
 # List of jobs for this workflow.
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.8, 3.9, "3.10"]
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
-        python -m pip install --upgrade pip
-        python -m pip install pylint pytest pytest-cov
-        python -m pip install jupyter
-        CC="mpicc" HDF5_MPI="ON" pip install --upgrade --force-reinstall --use-feature=no-binary-enable-wheel-cache --no-cache-dir --no-binary=h5py h5py
-
   ci-with-pytest-mpi:
 
     # Our strategy lists the OS and Python versions we want to test on.
@@ -67,7 +46,7 @@ jobs:
       - name: Install pip and read_swift
         run: |
           sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
-          CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache-dir --no-binary=h5py h5py
+          CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache-dir --no-binary=h5py "h5py<3.8"
           #python3 -m pip install --upgrade pip
           #python3 -m pip install .[ci]
         env:

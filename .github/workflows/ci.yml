@@ -46,9 +46,7 @@ jobs:
       - name: Install pip and read_swift
         run: |
           sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
-          pip cache list
-          #python3 -m pip cache list
-          #CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache-dir --no-binary=h5py h5py
+          CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache-dir --no-binary=h5py h5py
           #python3 -m pip install --upgrade pip
           #python3 -m pip install .[ci]
         env:

@@ -22,7 +22,7 @@ jobs:
       # Don't quit all jobs if only one job fails.
       fail-fast: false
       
-      matrix:
+      matrix:§
         python-version: ["3.8", "3.9", "3.10"]
         os: [ubuntu-20.04, ubuntu-22.04]
         mpi: ["openmpi"]
@@ -51,10 +51,11 @@ jobs:
       # Install dependencies.
       - name: Install pip and read_swift
         run: |
-          sudo apt install -y libhdf5-mpi-dev
           python3 -m pip install --upgrade pip
-          CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache --no-binary=h5py h5py
+          sudo apt-get update -y
+          sudo apt-get install -y libhdf5-mpi-dev
           python3 -m pip install .[ci]
+          CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache --no-binary=h5py h5py
         env:
           CC: mpicc
           HDF5_MPI: ON

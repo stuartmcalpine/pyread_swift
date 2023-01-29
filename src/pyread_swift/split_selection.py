@@ -183,7 +183,6 @@ def split_selection_collective(region_data, params):
     else:
         # Single core case.
         if params.comm_rank == 0:
-            params.message("Warning: Minimal ammount of particles for collective mode")
 
             # Loop over each file part.
             for fileno in np.unique(region_data["files"]):

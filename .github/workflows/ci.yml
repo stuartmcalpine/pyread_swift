@@ -7,7 +7,7 @@ on:
   # Triggers when push/pull-request made to the main branch.
   pull_request:
     branches:
-      - main
+      - main  
   push:
     branches:
       - main
@@ -53,9 +53,9 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y libhdf5-mpi-dev
+          CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache-dir --no-binary=h5py h5py
           python3 -m pip install --upgrade pip
           python3 -m pip install .[ci]
-          CC="mpicc" HDF5_MPI="ON" pip install --upgrade --force-reinstall --no-cache --no-binary=h5py h5py
         env:
           CC: mpicc
           HDF5_MPI: ON

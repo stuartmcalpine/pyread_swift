@@ -23,8 +23,8 @@ jobs:
       fail-fast: false
       
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
-        os: [ubuntu-20.04, ubuntu-22.04]
+        python-version: ["3.9"]
+        os: ["ubuntu-latest"]
         mpi: ["openmpi"]
   
     # What operating system is this job running on?
@@ -53,6 +53,8 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y libhdf5-mpi-dev
+          pip cache list
+          python3 -m pip cache list
           CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache-dir --no-binary=h5py h5py
           python3 -m pip install --upgrade pip
           python3 -m pip install .[ci]

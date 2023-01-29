@@ -54,7 +54,7 @@ def read_header(params):
     if "NumPart_Total_HighWord" in header.keys():
         for i in range(len(header["NumPart_Total"])):
             header["NumPart_Total"][i] = header["NumPart_Total"][i] + (
-                header["NumPart_Total_HighWord"][i] * 2 ** 32
+                header["NumPart_Total_HighWord"][i] * 2**32
             )
             header["NumPart_Total_HighWord"][i] = 0
 

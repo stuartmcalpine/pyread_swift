@@ -81,9 +81,7 @@ def split_selection_collective(region_data, params):
             file_mask = np.where(region_data["files"] == fileno)
 
             # How many particles from this file will each core load?
-            num_to_load_from_this_file = np.sum(
-                region_data["num_to_load"][file_mask]
-            )
+            num_to_load_from_this_file = np.sum(region_data["num_to_load"][file_mask])
             num_per_core = np.zeros(params.comm_size, dtype="i8")
             num_per_core[:] = num_to_load_from_this_file // params.comm_size
             num_per_core[-1] += num_to_load_from_this_file % params.comm_size
@@ -100,10 +98,10 @@ def split_selection_collective(region_data, params):
                     index_data["lefts"].append(region_data["lefts"][file_mask])
                     index_data["rights"].append(region_data["rights"][file_mask])
                     index_data["files"].append(fileno)
-                    index_data["num_to_load"].append(region_data["num_to_load"][file_mask])
-                    index_data[
-                        "total_num_to_load"
-                    ] += num_to_load_from_this_file
+                    index_data["num_to_load"].append(
+                        region_data["num_to_load"][file_mask]
+                    )
+                    index_data["total_num_to_load"] += num_to_load_from_this_file
 
             # The case where this file has many particles per rank.
             # In this case we do a collective read.
@@ -137,9 +135,7 @@ def split_selection_collective(region_data, params):
                                 my_count[j] += chunk_bucket
                                 if params.comm_rank == j:
                                     tmp_my_lefts.append(l + tmp_offset)
-                                    tmp_my_rights.append(
-                                        l + tmp_offset + chunk_bucket
-                                    )
+                                    tmp_my_rights.append(l + tmp_offset + chunk_bucket)
                                     tmp_my_files.append(fileno)
                                 chunk_bucket = 0
                             else:
@@ -183,9 +179,7 @@ def split_selection_collective(region_data, params):
                     np.array(index_data["rights"][-1])
                     - np.array(index_data["lefts"][-1])
                 )
-                index_data["total_num_to_load"] += np.sum(
-                    index_data["num_to_load"][-1]
-                )
+                index_data["total_num_to_load"] += np.sum(index_data["num_to_load"][-1])
     else:
         # Single core case.
         if params.comm_rank == 0:

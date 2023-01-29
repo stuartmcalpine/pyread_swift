@@ -98,7 +98,7 @@ def _mask_selected_region(
                     & (centres[:, 1] - half_size[1] <= coords[1] + dy_over_2)
                     & (centres[:, 2] + half_size[2] >= coords[2] - dz_over_2)
                     & (centres[:, 2] - half_size[2] <= coords[2] + dz_over_2)
-                )
+                )[0]
 
     if params.comm_size > 1:
         mask = params.comm.bcast(mask)
@@ -107,7 +107,15 @@ def _mask_selected_region(
 
 
 def select_region(
-    params, header, part_type, x_min, x_max, y_min, y_max, z_min, z_max,
+    params,
+    header,
+    part_type,
+    x_min,
+    x_max,
+    y_min,
+    y_max,
+    z_min,
+    z_max,
 ):
     """
     Find the snapshot files and top level cells that contain particles
@@ -119,14 +127,14 @@ def select_region(
 
     Generates a "region_data" dict that stores the HDF5 array indexs to
     load from each file. This is the same for all ranks, until
-    split_selection is called. 
+    split_selection is called.
 
     Parameters
     ----------
-	params : _SwiftSnapshotParams object
-		Contains the pyread_swift parameters
-	header : dict
-		Snapshot header information
+        params : _SwiftSnapshotParams object
+                Contains the pyread_swift parameters
+        header : dict
+                Snapshot header information
     part_type : int
         Parttype to select on
     x_min/x_max : float
@@ -136,9 +144,9 @@ def select_region(
     z_min/z_max : float
         Minimum and maximum bounds in z-dim to select
 
-	Returns
-	-------
-	region_data : dict
+        Returns
+        -------
+        region_data : dict
         Stores the particle index information for each file (which particles to
         load for the selected region)
     """
@@ -227,7 +235,7 @@ def select_region(
     else:
         # Make sure we found some particles.
         if len(mask) == 0:
-            raise Exception("No particles found in selected region.")
+            raise Exception("Found no cells in selected region")
 
         if params.comm_rank == 0:
 

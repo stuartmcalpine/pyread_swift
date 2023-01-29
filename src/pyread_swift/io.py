@@ -1,9 +1,9 @@
 import os
 
-from .read_dataset import read_dataset_distributed, read_dataset_collective
+from .read_dataset import read_dataset_collective, read_dataset_distributed
 from .read_header import read_header
 from .select_region import _get_filename, select_region
-from .split_selection import split_selection_distributed, split_selection_collective
+from .split_selection import split_selection_collective, split_selection_distributed
 
 
 class _SwiftSnapshotParams:
@@ -47,7 +47,7 @@ class _SwiftSnapshotParams:
         self.min_in_tot_collective = self.min_in_file_collective * self.comm_size
 
     def message(self, msg, only_zero=False):
-        """ Print message to stdout, noting the rank it came from. """
+        """Print message to stdout, noting the rank it came from."""
 
         if self.verbose:
             if only_zero:
@@ -85,7 +85,7 @@ class SwiftSnapshot:
                 is loaded collectivley using all ranks (needs parallel-hdf5
                 installed)
         max_concur_io : int
-            Max number of HDF5 files that can be open at once 
+            Max number of HDF5 files that can be open at once
 
         Attributes
         ----------
@@ -156,7 +156,7 @@ class SwiftSnapshot:
 
         Generates a "region_data" dict that stores the HDF5 array indexs to
         load from each file. This is the same for all ranks, until
-        split_selection is called. 
+        split_selection is called.
 
         Parameters
         ----------
@@ -190,6 +190,9 @@ class SwiftSnapshot:
             z_max,
         )
 
+        assert (
+            self.region_data["total_num_to_load"] > 0
+        ), "Found no particles in selected region"
         self.params.region_selected_on = part_type
 
     def read_dataset(self, parttype, att):
@@ -209,14 +212,19 @@ class SwiftSnapshot:
             The particles in the selected region
         """
 
-        assert self.header["NumPart_Total"][parttype] > 0, (
-            "No particles of PT=%i found in %s. [%s]"
-            % (parttype, self.fname, self.header["NumPart_Total"])
+        assert (
+            self.header["NumPart_Total"][parttype] > 0
+        ), "No particles of PT=%i found in %s. [%s]" % (
+            parttype,
+            self.fname,
+            self.header["NumPart_Total"],
         )
         assert self.params.split_selection_called, "Need to call split selection first"
-        assert self.params.region_selected_on == parttype, (
-            "Selected region on PT=%i but trying to read PT=%i"
-            % (self.params.region_selected_on, parttype)
+        assert (
+            self.params.region_selected_on == parttype
+        ), "Selected region on PT=%i but trying to read PT=%i" % (
+            self.params.region_selected_on,
+            parttype,
         )
 
         if self.params.mpi_read_format == "distributed":

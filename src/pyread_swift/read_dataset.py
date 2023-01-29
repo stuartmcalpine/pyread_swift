@@ -78,7 +78,8 @@ def read_dataset_collective(parttype, att, params, header, region_data, index_da
 
             if len(shape) > 1:
                 return_array = np.empty(
-                    (np.sum(index_data["total_num_to_load"]), shape[1]), dtype=dtype,
+                    (np.sum(index_data["total_num_to_load"]), shape[1]),
+                    dtype=dtype,
                 )
                 byte_size = dtype.itemsize * shape[1]
             else:
@@ -104,9 +105,11 @@ def read_dataset_collective(parttype, att, params, header, region_data, index_da
             mini_rights = np.cumsum(num_per_cycle)
             num_per_cycle[-1] += this_count % num_chunks
             mini_rights[-1] += this_count % num_chunks
-            assert np.sum(mini_rights - mini_lefts) == this_count, (
-                "Minis dont add up %i != this_count=%i"
-                % (np.sum(mini_rights - mini_lefts), this_count)
+            assert (
+                np.sum(mini_rights - mini_lefts) == this_count
+            ), "Minis dont add up %i != this_count=%i" % (
+                np.sum(mini_rights - mini_lefts),
+                this_count,
             )
 
             # Loop over each 2 Gb chunk.
@@ -149,7 +152,12 @@ def read_dataset_collective(parttype, att, params, header, region_data, index_da
         if len(return_array_shape) == 2:
             return np.zeros([0, return_array_shape[1]], dtype=return_array_dtype)
         else:
-            return np.zeros([0,], dtype=return_array_dtype)
+            return np.zeros(
+                [
+                    0,
+                ],
+                dtype=return_array_dtype,
+            )
     else:
         return return_array
 
@@ -198,7 +206,7 @@ def _get_dtype(fname, parttype, att, comm):
 def read_dataset_distributed(parttype, att, params, header, index_data):
     """
     Read particles from snapshot in distributed mode (only one rank ever reads
-    a single file). 
+    a single file).
 
     Parameters
     ----------
@@ -223,15 +231,22 @@ def read_dataset_distributed(parttype, att, params, header, index_data):
 
     # New communicator
     # Because we might have more ranks than files.
-    new_comm = params.comm.Split((0 if len(index_data["num_to_load"]) > 0 else 1), params.comm_rank)
+    new_comm = params.comm.Split(
+        (0 if len(index_data["num_to_load"]) > 0 else 1), params.comm_rank
+    )
 
     # No particles for this rank to load. Return empty array.
     if len(index_data["num_to_load"]) == 0:
         if len(shape) == 2:
             return np.zeros([0, shape[1]], dtype=dtype)
         else:
-            return np.zeros([0,], dtype=dtype)
-    
+            return np.zeros(
+                [
+                    0,
+                ],
+                dtype=dtype,
+            )
+
     # Number of particles this core is loading.
     tot = np.sum(np.concatenate(index_data["num_to_load"]))
 
@@ -252,12 +267,12 @@ def read_dataset_distributed(parttype, att, params, header, index_data):
     # Loop over each file and load the particles.
     # One rank per file.
     count = 0
-    lo_ranks = np.arange(
-        0, new_comm.size + params.max_concur_io, params.max_concur_io
-    )[:-1]
-    hi_ranks = np.arange(
-        0, new_comm.size + params.max_concur_io, params.max_concur_io
-    )[1:]
+    lo_ranks = np.arange(0, new_comm.size + params.max_concur_io, params.max_concur_io)[
+        :-1
+    ]
+    hi_ranks = np.arange(0, new_comm.size + params.max_concur_io, params.max_concur_io)[
+        1:
+    ]
 
     # Making sure not to go over max_concur_io.
     for lo, hi in zip(lo_ranks, hi_ranks):
@@ -288,9 +303,11 @@ def read_dataset_distributed(parttype, att, params, header, index_data):
                 mini_rights = np.cumsum(num_per_cycle)
                 num_per_cycle[-1] += this_count % num_chunks
                 mini_rights[-1] += this_count % num_chunks
-                assert np.sum(mini_rights - mini_lefts) == this_count, (
-                    "Minis dont add up %i != this_count=%i"
-                    % (np.sum(mini_rights - mini_lefts), this_count)
+                assert (
+                    np.sum(mini_rights - mini_lefts) == this_count
+                ), "Minis dont add up %i != this_count=%i" % (
+                    np.sum(mini_rights - mini_lefts),
+                    this_count,
                 )
 
                 # Loop over each 2 Gb chunk.

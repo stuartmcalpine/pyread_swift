@@ -38,7 +38,7 @@ jobs:
 
       # Install Python.
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -51,9 +51,9 @@ jobs:
       # Install dependencies.
       - name: Install pip and read_swift
         run: |
-          python3 -m pip install --upgrade pip
           sudo apt-get update -y
           sudo apt-get install -y libhdf5-mpi-dev
+          python3 -m pip install --upgrade pip
           python3 -m pip install .[ci]
           CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache --no-binary=h5py h5py
         env:

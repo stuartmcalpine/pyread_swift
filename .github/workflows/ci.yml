@@ -22,7 +22,7 @@ jobs:
       # Don't quit all jobs if only one job fails.
       fail-fast: false
       
-      matrix:§
+      matrix:
         python-version: ["3.8", "3.9", "3.10"]
         os: [ubuntu-20.04, ubuntu-22.04]
         mpi: ["openmpi"]

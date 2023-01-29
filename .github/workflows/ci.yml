@@ -14,6 +14,48 @@ on:
 
 # List of jobs for this workflow.
 jobs:
+  ci-with-pytest-mpi:
+
+    # Our strategy lists the OS and Python versions we want to test on.
+    strategy:
+
+      # Don't quit all jobs if only one job fails.
+      fail-fast: false
+      
+      matrix:
+        python-version: ["3.8", "3.9", "3.10"]
+        os: [ubuntu-20.04, ubuntu-22.04]
+  
+    # What operating system is this job running on?
+    runs-on: ${{ matrix.os }}
+
+    # Our CI steps for this job.
+    steps:
+      # Check out this repository code.
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      # Install Python.
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Install dependencies.
+      - name: Install pip and read_swift
+        run: |
+          sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
+          python3 -m pip install --upgrade pip
+          python3 -m pip install .[ci]
+          CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-binary=h5py h5py
+
+      # Perform unit tests.
+      - name: Test with pytest
+        run: |
+          cd tests
+          bash get_ics.sh
+          mpirun -np 2 pytest --with-mpi
+
   ci-with-pytest:
 
     # Our strategy lists the OS and Python versions we want to test on.
@@ -41,22 +83,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Install MPI.
-      - name: Setup MPI
-        uses: mpi4py/setup-mpi@v1
-        with:
-          mpi: "openmpi"
-
       # Install dependencies.
       - name: Install pip and read_swift
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install .
+          python3 -m pip install .[ci]
 
       # Perform unit tests.
       - name: Test with pytest
         run: |
-          python3 -m pip install pytest pytest-mpi
           cd tests
           bash get_ics.sh
           pytest

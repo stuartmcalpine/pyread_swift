@@ -25,6 +25,7 @@ jobs:
       matrix:
         python-version: ["3.8", "3.9", "3.10"]
         os: [ubuntu-20.04, ubuntu-22.04]
+        mpi: ["openmpi"]
   
     # What operating system is this job running on?
     runs-on: ${{ matrix.os }}
@@ -41,10 +42,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Install MPI libs
+      - name: Setup MPI
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: ${{ matrix.mpi }}
+
       # Install dependencies.
       - name: Install pip and read_swift
         run: |
-          sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
+          sudo apt install -y libhdf5-mpi-dev
           python3 -m pip install --upgrade pip
           python3 -m pip install .[ci]
           CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-binary=h5py h5py
@@ -67,7 +74,8 @@ jobs:
       matrix:
         python-version: ["3.8", "3.9", "3.10"]
         os: [ubuntu-20.04, ubuntu-22.04]
-  
+        mpi: ["openmpi"]
+
     # What operating system is this job running on?
     runs-on: ${{ matrix.os }}
 
@@ -83,10 +91,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Install MPI libs
+      - name: Setup MPI
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: ${{ matrix.mpi }}
+
       # Install dependencies.
       - name: Install pip and read_swift
         run: |
-          sudo apt install -y libopenmpi-dev libhdf5-dev
           python3 -m pip install --upgrade pip
           python3 -m pip install .[ci]
 

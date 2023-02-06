@@ -48,7 +48,7 @@ jobs:
           sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
           python3 -m pip install --upgrade pip
           python3 -m pip install .[ci_mpi]
-          python3 -m pip uninstall mpi4py h5py
+          python3 -m pip uninstall -y mpi4py h5py
           MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=mpi4py,h5py mpi4py h5py
           #env:
           #  MPICC: mpicc

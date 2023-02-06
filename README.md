@@ -17,15 +17,23 @@ Recommended modules when working on COSMA7:
 
 * `module load gnu_comp/11.1.0 openmpi/4.1.4 parallel_hdf5/1.12.0 python/3.9.1-C7`
 
-### Installation from source
-
 Given the need for a parallel HDF5 installation, it is recommended you install ``pyread_swift`` within a virtual/conda environment. However you can ofcourse also install directly into your base Python environment if you prefer.
 
 First make sure your `pip` is up-to-date:
 
 * `python3 -m pip install --upgrade pip`
 
-Then you can install the `pyread_swift` package by typing the following in
+### Method 1) Installation from PyPi
+
+The easiest method is to install from [``PyPI``](https://pypi.org/project/pyread-swift/)
+
+* `python3 -m pip install pyread-swift[mpi]`
+
+### Method 2) Installation from source
+
+Or, you can install directly from source.
+
+First clone the repo, then you can install the `pyread_swift` package by typing the following in
 the root git directory: 
 
 * `python3 -m pip install .[mpi]`

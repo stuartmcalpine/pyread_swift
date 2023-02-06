@@ -12,6 +12,42 @@ class _SwiftSnapshotParams:
         Class to store parameters for pyread_swift.
 
         Also stores the mpi4py communicator.
+
+        Parameters
+        ----------
+        fname : string
+            The path to the reference Swift snapshot(part)
+        comm : mpi4py communicator
+        verbose : bool
+            Print output?
+        mpi_read_format : string
+            "distributed":
+                The file parts are split between the ranks, each rank loads an
+                entire file part(s)
+            "collective":
+                The cells within a file are split between the ranks, each file
+                is loaded collectivley using all ranks (needs parallel-hdf5
+                installed)
+        max_concur_io : int
+            Max number of HDF5 files that can be open at once
+
+        Attributes
+        ----------
+        fname/comm/verbose/mpi_read_format/max_concur_io : See above
+		region_selected_on : int
+			Parttype region was selected with
+		split_selection_called : bool
+			True is split_selection() has been called
+		max_size_to_read_at_once : float
+			Maximum number of bytes that can be read at one from HDF5 file
+		min_in_file_collective : int
+			Minimum number of particles in file to allow "collective" reading
+		min_in_tot_collective : int
+			Minimum number of particles in total to allow "collective" reading
+		comm_size : int
+			Number of MPI ranks
+		comm_rank : int
+			ID of this MPI rank
         """
 
         # Reference snapshot(part).
@@ -47,7 +83,16 @@ class _SwiftSnapshotParams:
         self.min_in_tot_collective = self.min_in_file_collective * self.comm_size
 
     def message(self, msg, only_zero=False):
-        """Print message to stdout, noting the rank it came from."""
+        """
+		Print message to stdout, noting the rank it came from.
+
+        Parameters
+        ----------
+        msg : string
+            Message to print
+        only_zero : bool
+            True for only rank 0 to print the message
+		"""
 
         if self.verbose:
             if only_zero:

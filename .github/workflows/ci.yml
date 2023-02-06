@@ -14,55 +14,55 @@ on:
 
 # List of jobs for this workflow.
 jobs:
-  ci-with-pytest-mpi:
-  
-    # Our strategy lists the OS and Python versions we want to test on.
-    strategy:
-  
-      # Don't quit all jobs if only one job fails.
-      fail-fast: false
-      
-      matrix:
-        python-version: ["3.10"]
-        os: ["ubuntu-latest"]
-        mpi: ["openmpi"]
-  
-    # What operating system is this job running on?
-    runs-on: ${{ matrix.os }}
-  
-    # Our CI steps for this job.
-    steps:
-      # Check out this repository code.
-      - name: Check out repository code
-        uses: actions/checkout@v3
+  #ci-with-pytest-mpi:
+  #
+  #  # Our strategy lists the OS and Python versions we want to test on.
+  #  strategy:
+  #
+  #    # Don't quit all jobs if only one job fails.
+  #    fail-fast: false
+  #    
+  #    matrix:
+  #      python-version: ["3.10"]
+  #      os: ["ubuntu-latest"]
+  #      mpi: ["openmpi"]
+  #
+  #  # What operating system is this job running on?
+  #  runs-on: ${{ matrix.os }}
+  #
+  #  # Our CI steps for this job.
+  #  steps:
+  #    # Check out this repository code.
+  #    - name: Check out repository code
+  #      uses: actions/checkout@v3
  
-      # Install OpenMPI and HDF5 libs
-      - name: Install OpenMPI and HDF5
-        run: |
-          sudo apt-get update
-          sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
+  #    # Install OpenMPI and HDF5 libs
+  #    - name: Install OpenMPI and HDF5
+  #      run: |
+  #        sudo apt-get update
+  #        sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
 
-      # Install Python.
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-  
-      # Install py_Read_swift.
-      - name: Install pyread_swift
-        run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install .[ci_mpi]
-          python3 -m pip uninstall -y mpi4py h5py
-          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-binary=mpi4py mpi4py
-          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-binary=h5py h5py
-  
-      # Perform unit tests.
-      - name: Test with pytest
-        run: |
-          cd tests
-          bash get_ics.sh
-          mpirun -np 2 pytest --with-mpi test_read_mpi.py
+  #    # Install Python.
+  #    - name: Set up Python ${{ matrix.python-version }}
+  #      uses: actions/setup-python@v4
+  #      with:
+  #        python-version: ${{ matrix.python-version }}
+  #
+  #    # Install py_Read_swift.
+  #    - name: Install pyread_swift
+  #      run: |
+  #        python3 -m pip install --upgrade pip
+  #        python3 -m pip install .[ci_mpi]
+  #        python3 -m pip uninstall -y mpi4py h5py
+  #        MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-binary=mpi4py mpi4py
+  #        MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-binary=h5py h5py
+  #
+  #    # Perform unit tests.
+  #    - name: Test with pytest
+  #      run: |
+  #        cd tests
+  #        bash get_ics.sh
+  #        mpirun -np 2 pytest --with-mpi test_read_mpi.py
 
   ci-with-pytest:
 

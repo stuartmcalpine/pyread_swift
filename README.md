@@ -1,8 +1,8 @@
-# pyread_swift
+## An MPI read routine for Swift simulation snapshots
 
-- Simple Python3 script to read SWIFT (https://github.com/SWIFTSIM/swiftsim) snapshot outputs
+``pyread_swift`` is an MPI read routine for [``swiftsim``](https://github.com/SWIFTSIM/swiftsim) snapshots, very similar in style to John Helly's [``read_eagle``](https://gitlab.cosma.dur.ac.uk/jch/Read_Eagle) code to read EAGLE snapshots.
 
-- Similar in style to John Helly's `Read_Eagle` (https://gitlab.cosma.dur.ac.uk/jch/Read_Eagle) code to read EAGLE snapshot outputs.
+The package can read ``swiftsim`` snapshots both in "collective" (i.e., multiple MPI ranks read from a single file simultaneously) and "distributed" (i.e., each MPI reads an individual snapshot file part in isolation) modes. 
 
 ## Installation
 
@@ -17,20 +17,18 @@ Recommended modules when working on COSMA7:
 
 ### Installation from source
 
-It is recommended you install the package within a virtual/conda environment.
-Or alternatively, if you are installing on a shared access machine, to your
-local profile by including the `--user` flag during the `pip` installation. You can ofcourse also install directly into your base Python environment if you prefer.
+Given the need for a parallel HDF5 installation, it is recommended you install ``pyread_swift`` within a virtual/conda environment. However you can ofcourse also install directly into your base Python environment if you prefer.
 
 First make sure your `pip` is up-to-date:
 
 * `python3 -m pip install --upgrade pip`
 
 Then you can install the `pyread_swift` package by typing the following in
-the git directory: 
+the root git directory: 
 
-* `python3 -m pip install -e .`
+* `python3 -m pip install .`
 
-which will install `pyread_swift` and any dependencies (as an editable install).
+which will install `pyread_swift` and any dependencies.
 
 ### MPI installation for collective reading
 
@@ -38,32 +36,44 @@ If you are using `pyread_swift` to load large snapshots over MPI collectively
 (i.e., multiple cores read in parallel from the same file), a bit of additional
 setup is required.
 
-Make sure you have MPI libraries installed on your machine (`OpenMPI` for example), and you have `hdf5` installed with **parallel** compatibility ([see here for details](https://docs.h5py.org/en/stable/mpi.html)).
+Make sure you have `hdf5` installed with **parallel** compatibility ([see here for details](https://docs.h5py.org/en/stable/mpi.html)).
 
-First, uninstall any installed versions of `mpi4py` and `h5py`:
+Then, uninstall any installed versions of `mpi4py` and `h5py`:
 
 * `python3 -m pip uninstall mpi4py h5py`
 
-Then reinstall `mpi4py` and `h5py` from source with MPI flags:
+and reinstall then from source, with MPI flags:
 
 * `MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=mpi4py,h5py mpi4py h5py`
 
-If `pip` can't find your `HDF5` libraries automatically, e.g., `error: libhdf5.so: cannot open shared object file: No such file or directory`. You will have to specify the path to the HDF5 installation, i.e., `HDF5_DIR=/path/to/hdf5/lib` (see [here](https://docs.h5py.org/en/stable/build.html#building-against-parallel-hdf5) for more details).
+If `pip` struggles to find your `HDF5` libraries automatically, e.g., `error: libhdf5.so: cannot open shared object file: No such file or directory`. You may have to specify the path to the HDF5 installation manually, i.e., `HDF5_DIR=/path/to/hdf5/lib` (see [here](https://docs.h5py.org/en/stable/build.html#building-against-parallel-hdf5) for more details).
 
-For our COSMA7 setup, that will be:
+For our COSMA7 setup, that would be:
 
 `HDF5DIR="/cosma/local/parallel-hdf5//gnu_11.1.0_ompi_4.1.4/1.12.0/"`
 
 ## Usage
 
+``pyread_swift`` is build around a primary read wrapper, called ``SwiftSnapshot``. The snapshot particles are loaded into, stored, and manipulated by this object.
+
+Reading follows the same four steps (see also the examples below):
+
+* Initialize a ``SwiftSnapshot`` object pointing to the location of the HDF5 file.
+
+* Select the spatial region you want to extract the particles from using the ``select_region()`` routine.
+
+* Split the selection over the MPI ranks using the ``split_selection()`` routine.
+
+* Read a selected property of the particles using the ``read_dataset()`` routine.
+
 ### Input parameters to SwiftSnapshot
 
 | Input | Description | Default option |
 | ----- | ----------- | --------- |
-| fname | snapshot path to HDF5 file(part) | - |
-| comm= | MPI4PY communicator | None |
-| verbose= | True for more stdout output | False |
-| mpi_read_format= | How to read files in MPI mode ("collective" or "distributed") <br><br>"collective": Do a collective read of each file, i.e., all ranks read a single file at one. Recommened for single, or few large snapshot file(s). Requires parallel-hdf5 to be installed. <br><br>"distributed": Each rank reads its own file part. Recommended for multiple smaller files. | "collective" |
+| fname | Full path to HDF5 snapshot file. If the snapshot is split over multiple files, this can just be one of the file parts | - |
+| comm= | MPI4PY communicator (if reading in MPI) | None |
+| verbose= | True for more a more verbose output | False |
+| mpi_read_format= | How to read the snapshot in MPI mode ("collective" or "distributed") <br><br>"collective": Do a collective read of each file, i.e., all ranks read a single file at one. Recommended for single, or few large snapshot file(s). Requires parallel-hdf5 to be installed. <br><br>"distributed": Each rank reads its own file part. Recommended for multiple smaller files. | "collective" |
 | max_concur_io= | When reading in MPI, how many HDF5 files can be open at once | 64 |
 
 ### Example usage (No MPI case)
@@ -105,7 +115,7 @@ parttype = 1 # Dark matter
 region = [0,100,0,100,0,100] # [xlo,xhi,ylo,yhi,zlo,zhi]
 swift.select_region(parttype, *region)
 
-# Divide selection between ranks (needs to be invoked even for non-mpi case).
+# Divide selection between ranks.
 swift.split_selection()
 
 # Read data.

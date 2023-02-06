@@ -3,3 +3,4 @@ build/
 dist/
 __pycache__/
 *egg-info/
+tests/EAGLE_ICs_6.hdf5

@@ -14,51 +14,53 @@ on:
 
 # List of jobs for this workflow.
 jobs:
-  #  ci-with-pytest-mpi:
-  #
-  #    # Our strategy lists the OS and Python versions we want to test on.
-  #    strategy:
-  #
-  #      # Don't quit all jobs if only one job fails.
-  #      fail-fast: false
-  #      
-  #      matrix:
-  #        python-version: ["3.9"]
-  #        os: ["ubuntu-latest"]
-  #        mpi: ["openmpi"]
-  #  
-  #    # What operating system is this job running on?
-  #    runs-on: ${{ matrix.os }}
-  #
-  #    # Our CI steps for this job.
-  #    steps:
-  #      # Check out this repository code.
-  #      - name: Check out repository code
-  #        uses: actions/checkout@v3
-  #
-  #      # Install Python.
-  #      - name: Set up Python ${{ matrix.python-version }}
-  #        uses: actions/setup-python@v4
-  #        with:
-  #          python-version: ${{ matrix.python-version }}
-  #
-  #      # Install dependencies.
-  #      - name: Install pip and read_swift
-  #        run: |
-  #          sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
-  #          CC="mpicc" HDF5_MPI="ON" python3 -m pip install --upgrade --force-reinstall --no-cache-dir --no-binary=h5py "h5py<3.8"
-  #          #python3 -m pip install --upgrade pip
-  #          #python3 -m pip install .[ci]
-  #        env:
-  #          CC: mpicc
-  #          HDF5_MPI: ON
-  #
-  #      # Perform unit tests.
-  #      - name: Test with pytest
-  #        run: |
-  #          cd tests
-  #          bash get_ics.sh
-  #          mpirun -np 2 pytest --with-mpi
+  ci-with-pytest-mpi:
+  
+    # Our strategy lists the OS and Python versions we want to test on.
+    strategy:
+  
+      # Don't quit all jobs if only one job fails.
+      fail-fast: false
+      
+      matrix:
+        python-version: ["3.9"]
+        os: ["ubuntu-latest"]
+        mpi: ["openmpi"]
+  
+    # What operating system is this job running on?
+    runs-on: ${{ matrix.os }}
+  
+    # Our CI steps for this job.
+    steps:
+      # Check out this repository code.
+      - name: Check out repository code
+        uses: actions/checkout@v3
+  
+      # Install Python.
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+  
+      # Install dependencies.
+      - name: Install pip and read_swift
+        run: |
+          sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
+          python3 -m pip install --upgrade pip
+          python3 -m pip install .[ci_mpi]
+          python3 -m pip uninstall mpi4py h5py
+          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=mpi4py,h5py mpi4py h5py
+          #env:
+          #  MPICC: mpicc
+          #  CC: mpicc
+          #  HDF5_MPI: ON
+  
+      # Perform unit tests.
+      - name: Test with pytest
+        run: |
+          cd tests
+          bash get_ics.sh
+          mpirun -np 2 pytest --with-mpi test_read_mpi.py
 
   ci-with-pytest:
 

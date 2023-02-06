@@ -4,6 +4,8 @@
 
 The package can read ``swiftsim`` snapshots both in "collective" (i.e., multiple MPI ranks read from a single file simultaneously) and "distributed" (i.e., each MPI reads an individual snapshot file part in isolation) modes. 
 
+Can also read in pure serial, if no MPI libraries are installed.
+
 ## Installation
 
 ### Requirements
@@ -26,9 +28,9 @@ First make sure your `pip` is up-to-date:
 Then you can install the `pyread_swift` package by typing the following in
 the root git directory: 
 
-* `python3 -m pip install .`
+* `python3 -m pip install .[mpi]`
 
-which will install `pyread_swift` and any dependencies.
+which will install `pyread_swift` and any dependencies (omit ``[mpi]`` for pure serial version).
 
 ### MPI installation for collective reading
 

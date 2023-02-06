@@ -88,12 +88,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # Install MPI libs
-      - name: Setup MPI
-        uses: mpi4py/setup-mpi@v1
-        with:
-          mpi: ${{ matrix.mpi }}
-
       # Install dependencies.
       - name: Install pip and read_swift
         run: |
@@ -105,4 +99,4 @@ jobs:
         run: |
           cd tests
           bash get_ics.sh
-          pytest
+          pytest test_read.py

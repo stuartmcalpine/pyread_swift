@@ -12,11 +12,10 @@ license = { file = "LICENCE" }
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
-keywords = ["swift", "simulations", "mpi"]
+keywords = ["swiftsim", "simulations", "mpi", "numerical"]
 dependencies = [
     'numpy',
     'h5py',
-    'mpi4py',
 ]
 requires-python = ">=3.8"
 
@@ -24,4 +23,6 @@ requires-python = ">=3.8"
 where = ["src"]
 
 [project.optional-dependencies]
-ci = ["pytest", "pytest-mpi"]
+mpi = ["mpi4py"]
+ci = ["pytest"]
+ci_mpi = ["mpi4py", "pytest-mpi"]

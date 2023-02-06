@@ -35,23 +35,27 @@ jobs:
       # Check out this repository code.
       - name: Check out repository code
         uses: actions/checkout@v3
-  
+ 
+      # Install OpenMPI and HDF5 libs
+      - name: Install OpenMPI and HDF5
+        run: |
+          sudo apt-get update
+          sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
+
       # Install Python.
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
   
-      # Install dependencies.
-      - name: Install pip and read_swift
+      # Install py_Read_swift.
+      - name: Install pyread_swift
         run: |
-          sudo apt-get update
-          sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
           python3 -m pip install --upgrade pip
           python3 -m pip install .[ci_mpi]
           python3 -m pip uninstall -y mpi4py h5py
-          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --ignore-installed --force-reinstall --no-binary=mpi4py mpi4py
-          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --ignore-installed --force-reinstall --no-binary=h5py h5py
+          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=mpi4py mpi4py
+          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=h5py h5py
   
       # Perform unit tests.
       - name: Test with pytest

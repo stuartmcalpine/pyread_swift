@@ -35,18 +35,18 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v3
  
+      # Install Python.
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+ 
       # Install OpenMPI and HDF5 libs
       - name: Install OpenMPI and HDF5
         run: |
           sudo apt-get update
           sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
 
-      # Install Python.
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-  
       # Install py_Read_swift.
       - name: Install pyread_swift
         run: |
@@ -54,7 +54,7 @@ jobs:
           python3 -m pip install .[ci_mpi]
           python3 -m pip uninstall -y h5py
           python3 -m pip install wheel cython pkgconfig
-          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-build-isolation --no-binary=h5py h5py
+          CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-build-isolation --no-binary=h5py h5py
   
       # Perform unit tests.
       - name: Test with pytest

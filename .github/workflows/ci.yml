@@ -53,8 +53,8 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install .[ci_mpi]
-          python3 -m pip uninstall -y mpi4py h5py
-          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install  --no-binary=mpi4py mpi4py
+          python3 -m pip uninstall -y h5py
+          pip install wheel cython
           MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-build-isolation --no-binary=h5py h5py
   
       # Perform unit tests.

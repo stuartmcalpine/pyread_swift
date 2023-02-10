@@ -54,7 +54,7 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install .[ci_mpi]
           python3 -m pip uninstall -y h5py
-          pip install wheel cython
+          python3 -m pip install wheel cython pkgconfig
           MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-build-isolation --no-binary=h5py h5py
   
       # Perform unit tests.

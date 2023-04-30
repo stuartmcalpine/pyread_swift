@@ -4,8 +4,6 @@
 
 The package can read ``swiftsim`` snapshots both in "collective" (i.e., multiple MPI ranks read from a single file simultaneously) and "distributed" (i.e., each MPI reads an individual snapshot file part in isolation) modes. 
 
-Can also read in pure serial, if no MPI libraries are installed.
-
 ## Installation
 
 ### Requirements
@@ -15,19 +13,25 @@ Can also read in pure serial, if no MPI libraries are installed.
 
 Recommended modules when working on COSMA7:
 
-* `module load gnu_comp/11.1.0 openmpi/4.1.4 parallel_hdf5/1.12.0 python/3.9.1-C7`
+```bash
+module load gnu_comp/11.1.0 openmpi/4.1.4 parallel_hdf5/1.12.0 python/3.9.1-C7
+```
 
 Given the need for a parallel HDF5 installation, it is recommended you install ``pyread_swift`` within a virtual/conda environment. However you can ofcourse also install directly into your base Python environment if you prefer.
 
 First make sure your `pip` is up-to-date:
 
-* `python3 -m pip install --upgrade pip`
+```bash
+python3 -m pip install --upgrade pip
+```
 
 ### Method 1) Installation from PyPi
 
 The easiest method is to install from [``PyPI``](https://pypi.org/project/pyread-swift/)
 
-* `python3 -m pip install pyread-swift[mpi]`
+```bash
+python3 -m pip install pyread-swift
+```
 
 ### Method 2) Installation from source
 
@@ -36,9 +40,13 @@ Or, you can install directly from source.
 First clone the repo, then you can install the `pyread_swift` package by typing the following in
 the root git directory: 
 
-* `python3 -m pip install .[mpi]`
+```bash
+git clone https://github.com/stuartmcalpine/pyread_swift.git
+cd pyread_swift
+python3 -m pip install .
+```
 
-which will install `pyread_swift` and any dependencies (omit ``[mpi]`` for pure serial version).
+which will install `pyread_swift` and any dependencies.
 
 ### MPI installation for collective reading
 
@@ -48,27 +56,24 @@ setup is required.
 
 Make sure you have `hdf5` installed with **parallel** compatibility ([see here for details](https://docs.h5py.org/en/stable/mpi.html)).
 
-Then, uninstall any installed versions of `mpi4py` and `h5py`:
+Then, uninstall any versions of `h5py` and reinstall from source:
 
-* `python3 -m pip uninstall mpi4py h5py`
-
-and reinstall then from source, with MPI flags:
-
-* `MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=mpi4py mpi4py`
-
-* `MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=h5py h5py`
+```bash
+python3 -m pip uninstall h5py
+MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=h5py h5py
+```
 
 If `pip` struggles to find your `HDF5` libraries automatically, e.g., `error: libhdf5.so: cannot open shared object file: No such file or directory`. You may have to specify the path to the HDF5 installation manually, i.e., `HDF5_DIR=/path/to/hdf5/lib` (see [here](https://docs.h5py.org/en/stable/build.html#building-against-parallel-hdf5) for more details).
 
 For our COSMA7 setup, that would be:
 
-`HDF5DIR="/cosma/local/parallel-hdf5//gnu_11.1.0_ompi_4.1.4/1.12.0/"`
+`HDF5_DIR="/cosma/local/parallel-hdf5//gnu_11.1.0_ompi_4.1.4/1.12.0/"`
 
 ## Usage
 
 ``pyread_swift`` is build around a primary read wrapper, called ``SwiftSnapshot``. The snapshot particles are loaded into, stored, and manipulated by this object.
 
-Reading follows the same four steps (see also the examples below):
+Reading follows these four steps (see also the examples below):
 
 * Initialize a ``SwiftSnapshot`` object pointing to the location of the HDF5 file.
 

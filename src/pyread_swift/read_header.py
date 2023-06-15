@@ -33,10 +33,26 @@ def read_header(params):
 
                 # Loop over each attribute in the group.
                 for att in f[grp].attrs.keys():
+
+                    # Extract the attribute
+                    tmp = f[grp].attrs.get(att)
+
+                    # Reduce size 1 arrays to a scalar quantity
+                    if type(tmp) == np.ndarray and tmp.size == 1:
+                        tmp = tmp[0]
+
+                    # Check for duplicates
                     if att in header.keys():
-                        print(f"*WARNING* Duplicate header attribute {att}..")
-                        continue
-                    header[att] = f[grp].attrs.get(att)
+                        if not np.isclose(tmp, header[att], atol=1.0e6):
+                            print(
+                                f"*WARNING* Duplicate header attribute {att}",
+                                "with bad match to one another..",
+                            )
+                            continue
+
+                    # Store the attribute.
+                    header[att] = tmp
+
     else:
         header = None
     if params.comm_size > 1:
@@ -61,6 +77,7 @@ def read_header(params):
     # Assume boxsize is equal in all dimensions.
     if type(header["BoxSize"]) == list or type(header["BoxSize"]) == np.ndarray:
         if len(header["BoxSize"]) >= 1:
+            header["BoxSize_3D"] = header["BoxSize"]
             header["BoxSize"] = float(header["BoxSize"][0])
 
     return header

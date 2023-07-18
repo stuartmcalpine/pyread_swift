@@ -51,11 +51,12 @@ jobs:
       - name: Install pyread_swift
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install .[ci_mpi]
+          python3 -m pip install .
           python3 -m pip uninstall -y h5py
           git clone https://github.com/h5py/h5py.git
           cd h5py
           CC=mpicc HDF5_MPI="ON" python3 -m pip install .
+          python3 -m pip install pytest-mpi
           cd ..
   
       # Perform unit tests.
@@ -92,11 +93,18 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Install MPI / mpi4py
+      - name: Setup MPI
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: openmpi
+
       # Install dependencies.
       - name: Install pip and read_swift
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install .[ci]
+          python3 -m pip install .
+          python3 -m pip install pytest
 
       # Perform unit tests.
       - name: Test with pytest

@@ -11,7 +11,7 @@ comm = MPI.COMM_WORLD
 
 
 class combine:
-    def __init__(self, fname, outfile, parttype=1):
+    def __init__(self, fname, outfile, parttypes=[1, 2]):
         """
         Combine multiple snapshots parts into a single snapshot.
 
@@ -28,11 +28,11 @@ class combine:
             Path to snapshot parts (excluding the `.x.hdf5`)
         outfile : str
             Path to output combined snapshot
-        parttype : int
-            Must be 1 (DM)
+        parttypes : list[int]
+            Must be 1,2 or both (DM)
         """
 
-        self.parttype = parttype
+        self.parttypes = parttypes
         self.fname = fname
         self.outfile = outfile
 
@@ -45,33 +45,28 @@ class combine:
         # Create new output joined file.
         self.create_new_file(ntot)
 
-        # Set up datasets.
-        self.create_datasets(ntot)
-
         # Copy particles into new file.
-        self.copy_particles(ntot, lefts)
+        self.copy_particles(lefts)
 
         # Close file.
         self.new_f.close()
 
-    def copy_particles(
-        self, ntot, lefts, max_write_num=170000000
-    ):
+    def copy_particles(self, lefts, max_write_num=170000000):
         """
         Copy particles from this snapshot part into new single snapshot.
 
         Parameters
         ----------
-        ntot : int
-            Total number of particles in combined snapshot
-        lefts : array
+        lefts : dict
             Entry indexes for each snapshot part in the combined snapshot
         max_write_num : int
             Max number of particles a core can write at once
         """
 
-        left = 0
-        total_num = 0
+        left = {}
+
+        for parttype in self.parttypes:
+            left[parttype] = 0
 
         # Loop over each snapshot part and copy them over.
         for j in range(self.num_files_per_snapshot):
@@ -86,80 +81,87 @@ class combine:
             # Open the file
             this_f = h5py.File(this_fname, "r")
 
-            this_num = this_f["Header"].attrs["NumPart_ThisFile"][self.parttype]
-            total_num += this_num
-            if this_num > 0:
-                tmp_left = lefts[comm_rank] + left
-                tmp_right = lefts[comm_rank] + left + this_num
+            # Loop over each parttype
+            for parttype in self.parttypes:
 
-                num_chunks = int(np.ceil(this_num / max_write_num))
-                num_per_cycle = np.tile(this_num // num_chunks, num_chunks)
-                mini_lefts = np.cumsum(num_per_cycle) - num_per_cycle[0]
-                mini_rights = np.cumsum(num_per_cycle)
-                num_per_cycle[-1] += this_num % num_chunks
-                mini_rights[-1] += this_num % num_chunks
-                assert (
-                    np.sum(mini_rights - mini_lefts) == this_num
-                ), "Minis dont add up %i != this_num=%i" % (
-                    np.sum(mini_rights - mini_lefts),
-                    this_num,
-                )
+                this_num = this_f["Header"].attrs["NumPart_ThisFile"][parttype]
+                if this_num > 0:
+                    tmp_left = lefts[parttype][comm_rank] + left[parttype]
+                    tmp_right = lefts[parttype][comm_rank] + left[parttype] + this_num
 
-                # Loop over each attribute and copy.
-                for att in self.attribute_list.keys():
-                    print(f"[Rank {comm_rank}] Copying {att}...")
-                    num_read = 0
-                    for i in range(num_chunks):
-                        this_l_read = mini_lefts[i]
-                        this_r_read = mini_rights[i]
+                    num_chunks = int(np.ceil(this_num / max_write_num))
+                    num_per_cycle = np.tile(this_num // num_chunks, num_chunks)
+                    mini_lefts = np.cumsum(num_per_cycle) - num_per_cycle[0]
+                    mini_rights = np.cumsum(num_per_cycle)
+                    num_per_cycle[-1] += this_num % num_chunks
+                    mini_rights[-1] += this_num % num_chunks
+                    assert (
+                        np.sum(mini_rights - mini_lefts) == this_num
+                    ), "Minis dont add up %i != this_num=%i" % (
+                        np.sum(mini_rights - mini_lefts),
+                        this_num,
+                    )
 
-                        this_l_write = tmp_left + mini_lefts[i]
-                        this_r_write = this_l_write + (mini_rights[i] - mini_lefts[i])
+                    # Loop over each attribute and copy.
+                    for att in self.attribute_list.keys():
+                        if f"PartType{parttype}" not in att:
+                            continue
 
-                        tmp_data = this_f["PartType%i/%s" % (self.parttype, att)][
-                            this_l_read:this_r_read
-                        ]
-                        num_read += len(tmp_data)
-                        with self.new_f[
-                            "PartType%i/%s" % (self.parttype, att)
-                        ].collective:
-                            self.new_f["PartType%i/%s" % (self.parttype, att)][
-                                this_l_write:this_r_write
-                            ] = tmp_data
+                        print(f"[Rank {comm_rank}] Copying {att}...")
+                        num_read = 0
+                        for i in range(num_chunks):
+                            this_l_read = mini_lefts[i]
+                            this_r_read = mini_rights[i]
 
-                    assert tmp_right - tmp_left == num_read, "Indexing error"
-                left += this_num
+                            this_l_write = tmp_left + mini_lefts[i]
+                            this_r_write = this_l_write + (mini_rights[i] - mini_lefts[i])
+
+                            tmp_data = this_f[att][this_l_read:this_r_read]
+                            num_read += len(tmp_data)
+                            with self.new_f[att].collective:
+                                self.new_f[att][this_l_write:this_r_write] = tmp_data
+
+                        assert tmp_right - tmp_left == num_read, "Indexing error"
+                    left[parttype] += this_num
             this_f.close()
             print(
-                "[Rank %i] Done %i/%i"
-                % (comm_rank, j + 1, self.num_files_per_snapshot)
+                "[Rank %i] Done %i/%i" % (comm_rank, j + 1, self.num_files_per_snapshot)
             )
 
-    def create_datasets(self, ntot):
-        grp = self.new_f.create_group(f"PartType{self.parttype}")
-
-        for att in self.attribute_list.keys():
-            shape = self.attribute_list[att][1]
-            if len(shape) == 1:
-                grp.create_dataset(att, (ntot,), dtype=self.attribute_list[att][0])
-            else:
-                grp.create_dataset(att, (ntot,shape[1]), dtype=self.attribute_list[att][0])
-
     def create_new_file(self, ntot):
+        """
+        Create the placeholder output file.
+
+        This initiates the file and its headers, then creates placeholder
+        datasets of the correct shape and dtype.
+
+        Parameters
+        ----------
+        ntot : dict
+            Total number of particles for each parttype
+        """
+
+        # Create HDF5 file.
+        # Keep it open so we can add to it later.
         self.new_f = h5py.File(self.outfile, "w", driver="mpio", comm=comm)
         self.new_f.atomic = True
         if comm_rank == 0:
             print(f"creating {self.outfile}...")
+
+        # Create header group
         grp = self.new_f.create_group("Header")
 
         # Updated counts.
         ntots = [0, 0, 0, 0, 0, 0]
         highwords = [0, 0, 0, 0, 0, 0]
-        ntots[self.parttype] = ntot % 2**32
-        highwords[self.parttype] = ntot >> 32
         num_this_file = [0, 0, 0, 0, 0, 0]
-        num_this_file[self.parttype] = ntot
 
+        for parttype in self.parttypes:
+            ntots[parttype] = ntot[parttype] % 2**32
+            highwords[parttype] = ntot[parttype] >> 32
+            num_this_file[parttype] = ntot[parttype]
+
+        # Create Header group
         if self.header is not None:
             for att in self.header.keys():
                 if att == "NumPart_Total":
@@ -173,11 +175,13 @@ class combine:
                 else:
                     grp.attrs.create(att, self.header[att])
 
+        # Create Cosmology group (if exists)
         if self.cosmo is not None:
             grp = self.new_f.create_group("Cosmology")
             for att in self.cosmo.keys():
                 grp.attrs.create(att, self.cosmo[att])
 
+        # Create Parameters group (if exists)
         if self.params is not None:
             grp = self.new_f.create_group("Parameters")
             for att in self.params.keys():
@@ -186,34 +190,80 @@ class combine:
                 else:
                     grp.attrs.create(att, self.params[att])
 
-    def index_files(self):
-        ntot_this_rank = 0
+        # Create the dataset placeholders.
+        for parttype in self.parttypes:
+            grp = self.new_f.create_group(f"PartType{parttype}")
 
+            for att in self.attribute_list.keys():
+                if f"PartType{parttype}" in att:
+
+                    shape = self.attribute_list[att][1]
+                    if len(shape) == 1:
+                        grp.create_dataset(
+                            att.split("/")[1],
+                            (ntot[parttype],),
+                            dtype=self.attribute_list[att][0],
+                        )
+                    else:
+                        grp.create_dataset(
+                            att.split("/")[1],
+                            (ntot[parttype], shape[1]),
+                            dtype=self.attribute_list[att][0],
+                        )
+
+    def index_files(self):
+        """
+        Index the files.
+
+        Count up how many particles each rank will load in, and where it will
+        put those particles in the final combined snapshot.
+
+        Returns
+        -------
+        lefts : list
+            Left index this ranks partices will go in the final snapshot
+        ntot : list
+            Total number of particles this rank will deal with
+        """
+        ntot_this_rank = [0, 0, 0, 0, 0, 0]
+
+        # Loop over each snap part, count the particles from the header.
         for i in range(self.num_files_per_snapshot):
             if i % comm_size != comm_rank:
                 continue
             this_fname = self.fname + f".{i}.hdf5"
             if not os.path.isfile(this_fname):
-                continue
-            f = h5py.File(this_fname, "r")
-            n = f["Header"].attrs["NumPart_ThisFile"][self.parttype]
-            f.close()
+                raise FileNotFoundError()
 
-            ntot_this_rank += n
+            with h5py.File(this_fname, "r") as f:
+                for parttype in self.parttypes:
+                    ntot_this_rank[parttype] += f["Header"].attrs["NumPart_ThisFile"][
+                        parttype
+                    ]
+
+        ntot = {}
+        lefts = {}
+        rights = {}
 
         if comm_size > 1:
-            ntot = comm.allreduce(ntot_this_rank)
-            gather_counts = comm.allgather(ntot_this_rank)
-            rights = np.cumsum(gather_counts)
-            lefts = rights - gather_counts
-            counts = rights - lefts
-            assert np.array_equal(gather_counts, counts), "Not add up"
+
+            ntot_all_ranks = np.vstack(comm.allgather(ntot_this_rank))
+
+            for parttype in self.parttypes:
+                ntot[parttype] = np.sum(ntot_all_ranks[:, parttype])
+                rights[parttype] = np.cumsum(ntot_all_ranks[:, parttype], axis=0)
+                lefts[parttype] = rights[parttype] - ntot_all_ranks[:, parttype]
+
         else:
-            ntot = ntot_this_rank
-            lefts = [0]
+            ntot_all_ranks = ntot_this_rank
+
+            for parttype in self.parttypes:
+                ntot[parttype] = ntot_all_ranks[parttype]
+                lefts[parttype] = [0]
 
         if comm_rank == 0:
-            print(f"{ntot} total particles of type {self.parttype}")
+            for parttype in self.parttypes:
+                print(f"{ntot[parttype]} total particles of type {parttype}")
 
         return lefts, ntot
 
@@ -237,30 +287,40 @@ class combine:
         self.attribute_list = None
 
         if comm_rank == 0:
-            f = h5py.File(self.fname + ".0.hdf5", "r")
-            if "Header" in f:
-                self.header = {}
-                for att in f["Header"].attrs.keys():
-                    self.header[att] = f["Header"].attrs[att]
-            if "Cosmology" in f:
-                self.cosmo = {}
-                for att in f["Cosmology"].attrs.keys():
-                    self.cosmo[att] = f["Cosmology"].attrs[att]
-            if "Parameters" in f:
-                self.params = {}
-                for att in f["Parameters"].attrs.keys():
-                    self.params[att] = f["Parameters"].attrs[att]
+            with h5py.File(self.fname + ".0.hdf5", "r") as f:
+                if "Header" in f:
+                    self.header = {}
+                    for att in f["Header"].attrs.keys():
+                        self.header[att] = f["Header"].attrs[att]
+                if "Cosmology" in f:
+                    self.cosmo = {}
+                    for att in f["Cosmology"].attrs.keys():
+                        self.cosmo[att] = f["Cosmology"].attrs[att]
+                if "Parameters" in f:
+                    self.params = {}
+                    for att in f["Parameters"].attrs.keys():
+                        self.params[att] = f["Parameters"].attrs[att]
 
             # See what attributes the file has.
             self.attribute_list = {}
-            for att in f[f"PartType{self.parttype}"].keys():
-                self.attribute_list[att] = [
-                    f[f"PartType{self.parttype}/{att}"].dtype,
-                    f[f"PartType{self.parttype}/{att}"].shape,
-                    f[f"PartType{self.parttype}/{att}"].ndim,
-                ]
+            for i_file in range(self.header["NumFilesPerSnapshot"]):
+                with h5py.File(self.fname + f".{i_file}.hdf5", "r") as f:
 
-            f.close()
+                    for parttype in self.parttypes:
+                        if f"PartType{parttype}" not in f.keys():
+                            continue
+
+                        for att in f[f"PartType{parttype}"].keys():
+                            this_att = f"PartType{parttype}/{att}"
+
+                            if this_att in self.attribute_list.keys():
+                                continue
+
+                            self.attribute_list[this_att] = [
+                                f[this_att].dtype,
+                                f[this_att].shape,
+                                f[this_att].ndim,
+                            ]
 
         if comm_size > 1:
             self.header = comm.bcast(self.header)

@@ -14,7 +14,7 @@ classifiers = [
 ]
 keywords = ["swiftsim", "simulations", "mpi", "numerical"]
 dependencies = [
-    'numpy',
+    'numpy<2',
     'h5py',
     'mpi4py',
 ]

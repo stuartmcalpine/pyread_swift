@@ -53,9 +53,7 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install .
           python3 -m pip uninstall -y h5py
-          git clone https://github.com/h5py/h5py.git
-          cd h5py
-          CC=mpicc HDF5_MPI="ON" python3 -m pip install .
+          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=h5py h5py
           python3 -m pip install pytest-mpi
           cd ..
   

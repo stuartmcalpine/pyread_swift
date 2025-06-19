@@ -153,8 +153,7 @@ class combine:
 
             this_f.close()
             print(
-                "[Rank %i] Done %i/%i"
-                % (comm_rank, j + 1, self.num_files_per_snapshot)
+                "[Rank %i] Done %i/%i" % (comm_rank, j + 1, self.num_files_per_snapshot)
             )
 
     def create_datasets(self, ntot_dict):
@@ -176,6 +175,8 @@ class combine:
         self.new_f.atomic = True
         if comm_rank == 0:
             print(f"creating {self.outfile}...")
+
+        # Create header group
         grp = self.new_f.create_group("Header")
 
         # Updated counts.
@@ -190,6 +191,7 @@ class combine:
             highwords[parttype] = ntot >> 32
             num_this_file[parttype] = ntot
 
+        # Create Header group
         if self.header is not None:
             for att in self.header.keys():
                 if att == "NumPart_Total":
@@ -203,11 +205,13 @@ class combine:
                 else:
                     grp.attrs.create(att, self.header[att])
 
+        # Create Cosmology group (if exists)
         if self.cosmo is not None:
             grp = self.new_f.create_group("Cosmology")
             for att in self.cosmo.keys():
                 grp.attrs.create(att, self.cosmo[att])
 
+        # Create Parameters group (if exists)
         if self.params is not None:
             grp = self.new_f.create_group("Parameters")
             for att in self.params.keys():

@@ -18,7 +18,7 @@ dependencies = [
     'h5py',
     'mpi4py',
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 [tool.setuptools.packages.find]
 where = ["src"]

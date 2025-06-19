@@ -162,7 +162,7 @@ def read_dataset_collective(parttype, att, params, header, region_data, index_da
         return return_array
 
 
-def _get_dtype(fname, parttype, att, comm):
+def _get_dtype(fname, parttype, att, comm, comm_rank, comm_size):
     """
     Quickly scan the reference snapshot part to establish the shape and dtype
     of the desired array.
@@ -188,7 +188,7 @@ def _get_dtype(fname, parttype, att, comm):
         Datatype of array
     """
 
-    if comm.rank == 0:
+    if comm_rank == 0:
         with h5py.File(fname, "r") as f:
             shape = f["PartType%i/%s" % (parttype, att)].shape
             dtype = f["PartType%i/%s" % (parttype, att)].dtype
@@ -196,7 +196,7 @@ def _get_dtype(fname, parttype, att, comm):
         shape = None
         dtype = None
 
-    if comm.size > 1:
+    if comm_size > 1:
         shape = comm.bcast(shape)
         dtype = comm.bcast(dtype)
 
@@ -206,7 +206,7 @@ def _get_dtype(fname, parttype, att, comm):
 def read_dataset_distributed(parttype, att, params, header, index_data):
     """
     Read particles from snapshot in distributed mode (only one rank ever reads
-    a single file).
+    a single file). Can also run in serial mode when no MPI communicator is provided.
 
     Parameters
     ----------
@@ -225,34 +225,42 @@ def read_dataset_distributed(parttype, att, params, header, index_data):
     return_array : ndarray
         The particle data
     """
+    # Check if we're running in serial mode
+    is_serial = params.comm is None
 
     # Get shape and dtype of array.
-    shape, dtype = _get_dtype(params.fname, parttype, att, params.comm)
+    shape, dtype = _get_dtype(params.fname, parttype, att,
+                           params.comm,
+                           0 if is_serial else params.comm_rank,
+                           1 if is_serial else params.comm_size)
 
-    # New communicator
-    # Because we might have more ranks than files.
-    new_comm = params.comm.Split(
-        (0 if len(index_data["num_to_load"]) > 0 else 1), params.comm_rank
-    )
+    # Handle communicator splitting for MPI mode, or set defaults for serial mode
+    if is_serial:
+        # In serial mode, we don't need to split the communicator
+        has_particles_to_load = len(index_data["num_to_load"]) > 0
+        comm_rank = 0
+        comm_size = 1
+    else:
+        # New communicator because we might have more ranks than files
+        new_comm = params.comm.Split(
+            (0 if len(index_data["num_to_load"]) > 0 else 1), params.comm_rank
+        )
+        has_particles_to_load = len(index_data["num_to_load"]) > 0
+        comm_rank = new_comm.rank
+        comm_size = new_comm.size
 
     # No particles for this rank to load. Return empty array.
-    if len(index_data["num_to_load"]) == 0:
+    if not has_particles_to_load:
         if len(shape) == 2:
             return np.zeros([0, shape[1]], dtype=dtype)
         else:
-            return np.zeros(
-                [
-                    0,
-                ],
-                dtype=dtype,
-            )
+            return np.zeros([0], dtype=dtype)
 
     # Number of particles this core is loading.
     tot = np.sum(np.concatenate(index_data["num_to_load"]))
 
     # Total number of files the snapshot is distributed over.
     num_files = len(index_data["num_to_load"])
-
     params.message(f"Loading {tot} particles from {num_files} files.")
 
     # Set up return array.
@@ -262,29 +270,33 @@ def read_dataset_distributed(parttype, att, params, header, index_data):
     else:
         byte_size = dtype.itemsize
         return_array = np.empty(tot, dtype=dtype)
+
     return_array = return_array.astype(return_array.dtype.newbyteorder("="))
 
     # Loop over each file and load the particles.
-    # One rank per file.
+    # For serial mode, we process all files
+    # For MPI mode, we distribute one rank per file
     count = 0
-    lo_ranks = np.arange(0, new_comm.size + params.max_concur_io, params.max_concur_io)[
-        :-1
-    ]
-    hi_ranks = np.arange(0, new_comm.size + params.max_concur_io, params.max_concur_io)[
-        1:
-    ]
+
+    # Calculate rank ranges based on max_concur_io
+    if is_serial:
+        # In serial mode, we just need one range covering our single "rank"
+        lo_ranks = [0]
+        hi_ranks = [1]
+    else:
+        lo_ranks = np.arange(0, comm_size + params.max_concur_io, params.max_concur_io)[:-1]
+        hi_ranks = np.arange(0, comm_size + params.max_concur_io, params.max_concur_io)[1:]
 
     # Making sure not to go over max_concur_io.
     for lo, hi in zip(lo_ranks, hi_ranks):
-
         # Loop over each file.
         for j, fileno in enumerate(index_data["files"]):
-
-            if not (new_comm.rank >= lo and new_comm.rank < hi):
+            # In serial mode, process all files
+            # In MPI mode, only process files assigned to this rank
+            if not is_serial and not (comm_rank >= lo and comm_rank < hi):
                 continue
 
             params.message(f"Loading file {fileno}.")
-
             f = h5py.File(
                 _get_filename(params.fname, header["NumFilesPerSnapshot"], fileno), "r"
             )
@@ -292,7 +304,6 @@ def read_dataset_distributed(parttype, att, params, header, index_data):
             # Loop over each left and right block for this file.
             for l, r in zip(index_data["lefts"][j], index_data["rights"][j]):
                 this_count = r - l
-
                 # Can't read more than <max_size_to_read_at_once> at once.
                 # Need to chunk it.
                 num_chunks = int(
@@ -310,25 +321,20 @@ def read_dataset_distributed(parttype, att, params, header, index_data):
                     this_count,
                 )
 
-                # Loop over each 2 Gb chunk.
+                # Loop over each chunk.
                 for i in range(num_chunks):
-
                     this_l_return = count + mini_lefts[i]
                     this_r_return = count + mini_rights[i]
-
                     this_l_read = l + mini_lefts[i]
                     this_r_read = l + mini_rights[i]
-
                     return_array[this_l_return:this_r_return] = f[
-                        "PartType%i/%s" % (parttype, att)
+                        f"PartType{parttype}/{att}"
                     ][this_l_read:this_r_read]
-
                 count += this_count
-
             f.close()
 
-        # Need to wait as to not go over max_concur_io.
-        if new_comm.size > 1:
+        # Need to wait as to not go over max_concur_io (only in MPI mode)
+        if not is_serial and comm_size > 1:
             new_comm.barrier()
 
     return return_array

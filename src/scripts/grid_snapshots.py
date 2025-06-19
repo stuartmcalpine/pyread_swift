@@ -4,7 +4,10 @@ import numpy as np
 import sys
 import time
 from mpi4py import MPI
-import virgo.mpi.parallel_sort as ps
+try:
+    import virgo.mpi.parallel_sort as ps
+except ImportError:
+    pass
 
 # MPI stuff.
 comm = MPI.COMM_WORLD

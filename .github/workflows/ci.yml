@@ -48,15 +48,20 @@ jobs:
           sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
 
       # Install pyread_swift, then rebuild h5py with MPI support.
-      # --no-build-isolation avoids h5py pulling in a pinned old mpi4py
-      # that fails to compile with modern setuptools.
+      # h5py's build pins an old mpi4py (3.1.2) that fails with modern
+      # setuptools, so we install build deps ourselves, download the h5py
+      # source, and build from the local tree with --no-build-isolation.
       - name: Install pyread_swift
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install .
-          python3 -m pip install Cython pkgconfig
+          python3 -m pip install "Cython>=0.29.31,<4" pkgconfig numpy mpi4py setuptools wheel
           python3 -m pip uninstall -y h5py
-          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=h5py --no-build-isolation h5py
+          python3 -m pip download --no-binary=h5py --no-deps -d /tmp/h5py-src h5py
+          mkdir -p /tmp/h5py-build
+          tar xzf /tmp/h5py-src/h5py-*.tar.gz -C /tmp/h5py-build
+          cd /tmp/h5py-build/h5py-*/
+          CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-build-isolation .
           python3 -m pip install pytest-mpi
 
       # Perform unit tests.

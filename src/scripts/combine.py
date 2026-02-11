@@ -172,14 +172,14 @@ class combine:
         grp = self.new_f.create_group("Header")
 
         # Build combined particle count arrays (6 SWIFT particle types).
-        ntots = [0, 0, 0, 0, 0, 0]
-        highwords = [0, 0, 0, 0, 0, 0]
-        num_this_file = [0, 0, 0, 0, 0, 0]
+        ntots = np.zeros(6, dtype=np.int64)
+        highwords = np.zeros(6, dtype=np.int64)
+        num_this_file = np.zeros(6, dtype=np.int64)
 
         for parttype in self.parttypes:
-            ntot = ntot_dict[parttype]
-            ntots[parttype] = ntot % 2**32
-            highwords[parttype] = ntot >> 32
+            ntot = int(ntot_dict[parttype])
+            ntots[parttype] = ntot
+            highwords[parttype] = 0
             num_this_file[parttype] = ntot
 
         # Write header attributes, overriding count-related fields.

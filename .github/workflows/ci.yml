@@ -47,15 +47,17 @@ jobs:
           sudo apt-get update
           sudo apt install -y libopenmpi-dev libhdf5-mpi-dev
 
-      # Install py_Read_swift.
+      # Install pyread_swift, then rebuild h5py with MPI support.
+      # --no-build-isolation avoids h5py pulling in a pinned old mpi4py
+      # that fails to compile with modern setuptools.
       - name: Install pyread_swift
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install .
+          python3 -m pip install Cython pkgconfig
           python3 -m pip uninstall -y h5py
-          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=h5py h5py
+          MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=h5py --no-build-isolation h5py
           python3 -m pip install pytest-mpi
-          cd ..
 
       # Perform unit tests.
       - name: Test with pytest

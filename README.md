@@ -9,12 +9,14 @@ The package can read ``swiftsim`` snapshots both in "collective" (i.e., multiple
 ### Requirements
 
 * `OpenMPI` or other MPI library
-* `python>=3.8`
+* `python>=3.10`
+* `virgodc`
 
 Recommended modules when working on COSMA7:
 
 ```bash
-module load gnu_comp/11.1.0 openmpi/4.1.4 parallel_hdf5/1.12.0 python/3.9.1-C7
+module load gnu_comp/14.1.0 openmpi/5.0.3 parallel_hdf5/1.14.4 fftw/3.3.10
+module load python/3.12.4
 ```
 
 Given the need for a parallel HDF5 installation, it is recommended you install ``pyread_swift`` within a virtual/conda environment. However you can ofcourse also install directly into your base Python environment if you prefer.
@@ -67,7 +69,7 @@ If `pip` struggles to find your `HDF5` libraries automatically, e.g., `error: li
 
 For our COSMA7 setup, that would be:
 
-`HDF5_DIR="/cosma/local/parallel-hdf5//gnu_11.1.0_ompi_4.1.4/1.12.0/"`
+`HDF5_DIR="/cosma/local/parallel-hdf5//gnu_14.1.0_ompi_5.0.3/1.14.4/"`
 
 ## Usage
 
@@ -139,4 +141,10 @@ swift.split_selection()
 ids = swift.read_dataset(parttype, "ParticleIDs")
 ```
 
+### Combining snapshot parts
 
+`pyread_swift` provides a CLI tool to combine multiple snapshot file parts into a single file (designed for DMO simulations):
+
+```bash
+mpirun -np 4 pyread_swift combine /path/to/snapshot_0000 /path/to/combined_snapshot.hdf5
+```

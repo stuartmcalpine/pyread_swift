@@ -9,10 +9,8 @@ import shutil
 try:
     from mpi4py import MPI
 
-    comm = MPI.COMM_WORLD
-    h5py.File("/dev/null", "w", driver="mpio", comm=comm).close()
-    HAS_PARALLEL_HDF5 = True
-except Exception:
+    HAS_PARALLEL_HDF5 = h5py.get_config().mpi
+except ImportError:
     HAS_PARALLEL_HDF5 = False
 
 pytestmark = pytest.mark.skipif(

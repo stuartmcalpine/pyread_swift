@@ -17,6 +17,28 @@ pytestmark = pytest.mark.skipif(
     not HAS_PARALLEL_HDF5, reason="Requires mpi4py and parallel HDF5"
 )
 
+comm = MPI.COMM_WORLD if HAS_PARALLEL_HDF5 else None
+
+
+def _mpi_tmpdir():
+    """Create a shared temp directory: rank 0 creates, broadcasts path to all."""
+
+    if comm.rank == 0:
+        tmpdir = tempfile.mkdtemp()
+    else:
+        tmpdir = None
+    tmpdir = comm.bcast(tmpdir, root=0)
+    comm.Barrier()
+    return tmpdir
+
+
+def _mpi_cleanup(tmpdir):
+    """Clean up temp directory from rank 0 only."""
+
+    comm.Barrier()
+    if comm.rank == 0:
+        shutil.rmtree(tmpdir)
+
 
 def _create_snapshot_parts(tmpdir, num_parts=4, num_dm=100, num_boundary=20):
     """
@@ -24,9 +46,15 @@ def _create_snapshot_parts(tmpdir, num_parts=4, num_dm=100, num_boundary=20):
 
     PartType1 = DM particles, PartType2 = DM boundary particles.
     Particles are split roughly evenly across parts.
+
+    Only rank 0 creates the files; all ranks receive the reference data
+    via broadcast.
     """
 
     basename = os.path.join(tmpdir, "snap")
+
+    # Use a fixed seed so all ranks agree on the reference data.
+    rng = np.random.RandomState(42)
 
     # Split particle counts across file parts.
     dm_per_part = np.zeros(num_parts, dtype=int)
@@ -36,47 +64,52 @@ def _create_snapshot_parts(tmpdir, num_parts=4, num_dm=100, num_boundary=20):
     for i in range(num_boundary):
         bd_per_part[i % num_parts] += 1
 
-    coords_dm_all = np.random.rand(num_dm, 3).astype(np.float64)
-    masses_dm_all = np.random.rand(num_dm).astype(np.float32)
-    coords_bd_all = np.random.rand(num_boundary, 3).astype(np.float64)
-    masses_bd_all = np.random.rand(num_boundary).astype(np.float32)
+    coords_dm_all = rng.rand(num_dm, 3).astype(np.float64)
+    masses_dm_all = rng.rand(num_dm).astype(np.float32)
+    coords_bd_all = rng.rand(num_boundary, 3).astype(np.float64)
+    masses_bd_all = rng.rand(num_boundary).astype(np.float32)
 
-    dm_offset = 0
-    bd_offset = 0
-    for i in range(num_parts):
-        fname = f"{basename}.{i}.hdf5"
-        with h5py.File(fname, "w") as f:
-            n_dm = int(dm_per_part[i])
-            n_bd = int(bd_per_part[i])
+    # Only rank 0 writes the fake snapshot parts.
+    if comm.rank == 0:
+        dm_offset = 0
+        bd_offset = 0
+        for i in range(num_parts):
+            fname = f"{basename}.{i}.hdf5"
+            with h5py.File(fname, "w") as f:
+                n_dm = int(dm_per_part[i])
+                n_bd = int(bd_per_part[i])
 
-            nparts_this = [0, n_dm, n_bd, 0, 0, 0]
+                nparts_this = [0, n_dm, n_bd, 0, 0, 0]
 
-            grp = f.create_group("Header")
-            grp.attrs["NumPart_ThisFile"] = nparts_this
-            grp.attrs["NumPart_Total"] = [0, num_dm, num_boundary, 0, 0, 0]
-            grp.attrs["NumPart_Total_HighWord"] = [0, 0, 0, 0, 0, 0]
-            grp.attrs["NumFilesPerSnapshot"] = num_parts
-            grp.attrs["BoxSize"] = 100.0
+                grp = f.create_group("Header")
+                grp.attrs["NumPart_ThisFile"] = nparts_this
+                grp.attrs["NumPart_Total"] = [0, num_dm, num_boundary, 0, 0, 0]
+                grp.attrs["NumPart_Total_HighWord"] = [0, 0, 0, 0, 0, 0]
+                grp.attrs["NumFilesPerSnapshot"] = num_parts
+                grp.attrs["BoxSize"] = 100.0
 
-            if n_dm > 0:
-                pt1 = f.create_group("PartType1")
-                pt1.create_dataset(
-                    "Coordinates", data=coords_dm_all[dm_offset : dm_offset + n_dm]
-                )
-                pt1.create_dataset(
-                    "Masses", data=masses_dm_all[dm_offset : dm_offset + n_dm]
-                )
-            dm_offset += n_dm
+                if n_dm > 0:
+                    pt1 = f.create_group("PartType1")
+                    pt1.create_dataset(
+                        "Coordinates", data=coords_dm_all[dm_offset : dm_offset + n_dm]
+                    )
+                    pt1.create_dataset(
+                        "Masses", data=masses_dm_all[dm_offset : dm_offset + n_dm]
+                    )
+                dm_offset += n_dm
 
-            if n_bd > 0:
-                pt2 = f.create_group("PartType2")
-                pt2.create_dataset(
-                    "Coordinates", data=coords_bd_all[bd_offset : bd_offset + n_bd]
-                )
-                pt2.create_dataset(
-                    "Masses", data=masses_bd_all[bd_offset : bd_offset + n_bd]
-                )
-            bd_offset += n_bd
+                if n_bd > 0:
+                    pt2 = f.create_group("PartType2")
+                    pt2.create_dataset(
+                        "Coordinates", data=coords_bd_all[bd_offset : bd_offset + n_bd]
+                    )
+                    pt2.create_dataset(
+                        "Masses", data=masses_bd_all[bd_offset : bd_offset + n_bd]
+                    )
+                bd_offset += n_bd
+
+    # Wait for rank 0 to finish writing before any rank reads.
+    comm.Barrier()
 
     return basename, coords_dm_all, masses_dm_all, coords_bd_all, masses_bd_all
 
@@ -86,7 +119,7 @@ def test_combine_particle_counts():
 
     from scripts.combine import combine
 
-    tmpdir = tempfile.mkdtemp()
+    tmpdir = _mpi_tmpdir()
     try:
         num_dm, num_bd = 100, 20
         basename, *_ = _create_snapshot_parts(
@@ -102,7 +135,7 @@ def test_combine_particle_counts():
             assert nparts[2] == num_bd
             assert f["Header"].attrs["NumFilesPerSnapshot"] == 1
     finally:
-        shutil.rmtree(tmpdir)
+        _mpi_cleanup(tmpdir)
 
 
 def test_combine_data_integrity():
@@ -110,7 +143,7 @@ def test_combine_data_integrity():
 
     from scripts.combine import combine
 
-    tmpdir = tempfile.mkdtemp()
+    tmpdir = _mpi_tmpdir()
     try:
         basename, coords_dm, masses_dm, coords_bd, masses_bd = _create_snapshot_parts(
             tmpdir, num_parts=4, num_dm=80, num_boundary=16
@@ -140,7 +173,7 @@ def test_combine_data_integrity():
             np.testing.assert_allclose(coords_bd[idx_orig], out_coords_bd[idx_out])
             np.testing.assert_allclose(masses_bd[idx_orig], out_masses_bd[idx_out])
     finally:
-        shutil.rmtree(tmpdir)
+        _mpi_cleanup(tmpdir)
 
 
 def test_combine_single_parttype():
@@ -148,7 +181,7 @@ def test_combine_single_parttype():
 
     from scripts.combine import combine
 
-    tmpdir = tempfile.mkdtemp()
+    tmpdir = _mpi_tmpdir()
     try:
         num_dm = 50
         basename, *_ = _create_snapshot_parts(
@@ -163,7 +196,7 @@ def test_combine_single_parttype():
             assert "PartType1" in f
             assert "PartType2" not in f
     finally:
-        shutil.rmtree(tmpdir)
+        _mpi_cleanup(tmpdir)
 
 
 def test_combine_empty_parttype():
@@ -171,7 +204,7 @@ def test_combine_empty_parttype():
 
     from scripts.combine import combine
 
-    tmpdir = tempfile.mkdtemp()
+    tmpdir = _mpi_tmpdir()
     try:
         basename, *_ = _create_snapshot_parts(
             tmpdir, num_parts=2, num_dm=50, num_boundary=0
@@ -185,4 +218,4 @@ def test_combine_empty_parttype():
             assert "PartType2" not in f
             assert f["Header"].attrs["NumPart_ThisFile"][2] == 0
     finally:
-        shutil.rmtree(tmpdir)
+        _mpi_cleanup(tmpdir)

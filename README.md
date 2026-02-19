@@ -141,6 +141,71 @@ swift.split_selection()
 ids = swift.read_dataset(parttype, "ParticleIDs")
 ```
 
+## Lightcone particle reading
+
+``pyread_swift`` also provides ``SwiftParticleLightcone`` for reading particle lightcone outputs. Files are discovered automatically from a directory, and MPI is supported in distributed mode (no parallel HDF5 required).
+
+### Input parameters to SwiftParticleLightcone
+
+| Input | Description | Default |
+| ----- | ----------- | ------- |
+| lightcone_dir | Path to directory containing lightcone files | - |
+| lightcone_id | Integer lightcone ID (e.g. `0` for files named `lightcone0_XXXX.hdf5`) | - |
+| verbose= | True for more verbose output | False |
+| comm= | MPI4PY communicator (if reading in MPI) | None |
+
+### Example usage (No MPI case)
+
+```python
+from pyread_swift import SwiftParticleLightcone
+
+lc = SwiftParticleLightcone("/path/to/lightcone/", lightcone_id=0)
+
+# Inspect header.
+print(lc.header)
+
+# Read a dataset (each call can request a different attribute or particle type).
+coords = lc.read_dataset("Coordinates", parttype="DM")
+```
+
+### Example usage (MPI case)
+
+```python
+from mpi4py import MPI
+from pyread_swift import SwiftParticleLightcone
+
+comm = MPI.COMM_WORLD
+
+lc = SwiftParticleLightcone("/path/to/lightcone/", lightcone_id=0, comm=comm)
+
+# Each rank reads a strided subset of files and holds its own portion.
+coords = lc.read_dataset("Coordinates", parttype="DM")
+```
+
+## Lightcone HEALPix reading
+
+``SwiftLightconeHealpix`` reads HEALPix map shells from SWIFT lightcone outputs. Shells are split across multiple file parts, which are located and combined automatically.
+
+### Input parameters to SwiftLightconeHealpix
+
+| Input | Description |
+| ----- | ----------- |
+| fname | Path to any one file part of the shell (e.g. `lightcone0.shell_0001.0.hdf5`) |
+
+### Example usage
+
+```python
+from pyread_swift import SwiftLightconeHealpix
+
+healpix = SwiftLightconeHealpix("/path/to/lightcone0.shell_0001.0.hdf5")
+
+# Inspect header (e.g. nside, redshift bounds, nr_files_per_shell).
+print(healpix.header)
+
+# Read and combine HEALPix array across all file parts.
+arr = healpix.read_lightcone("DarkMatterMass")
+```
+
 ### Combining snapshot parts
 
 `pyread_swift` provides a CLI tool to combine multiple snapshot file parts into a single file (designed for DMO simulations):

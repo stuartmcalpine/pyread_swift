@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+import os
 
 
 def _get_filename(fname, num_files_per_snapshot, fileno):

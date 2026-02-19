@@ -21,7 +21,10 @@ def _get_filename(fname, num_files_per_snapshot, fileno):
         The desired filename
     """
     if num_files_per_snapshot > 1:
-        return fname.split(".")[:-2][0] + ".%i.hdf5" % fileno
+        dirname = os.path.dirname(fname)
+        basename = os.path.basename(fname)         # 'snap_0077.0.hdf5'
+        base = basename.rsplit(".", 2)[0]          # 'snap_0077'
+        return os.path.join(dirname, f"{base}.{fileno}.hdf5")
     else:
         return fname
 

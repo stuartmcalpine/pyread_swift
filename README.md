@@ -79,7 +79,7 @@ Reading follows these four steps (see also the examples below):
 
 * Initialize a ``SwiftSnapshot`` object pointing to the location of the HDF5 file.
 
-* Select the spatial region you want to extract the particles from using the ``select_region()`` routine.
+* Select the spatial region you want to extract the particles from using the ``select_region()`` or ``select_spherical_region()`` routine.
 
 * Split the selection over the MPI ranks using the ``split_selection()`` routine.
 
@@ -125,7 +125,7 @@ from pyread_swift import SwiftSnapshot
 # MPI communicator.
 comm = MPI.COMM_WORLD
 
-# Set up read_swift object pointing at HDF5 snapshot file (or a file part). 
+# Set up read_swift object pointing at HDF5 snapshot file (or a file part).
 snapshot = "/path/to/snap/part.0.hdf5"
 swift = SwiftSnapshot(snapshot, comm=comm)
 
@@ -140,6 +140,50 @@ swift.split_selection()
 # Read data.
 ids = swift.read_dataset(parttype, "ParticleIDs")
 ```
+
+### Spherical region selection
+
+Use ``select_spherical_region()`` to select particles within a sphere or a spherical shell. The selection is cell-based — the same top-level cell machinery is used as for ``select_region()``, so only the relevant file parts and HDF5 slices are read. Cells on the boundary of the sphere are included in full, so a small number of particles outside the requested radius may be returned. Apply a distance cut after reading coordinates if an exact sphere is required.
+
+```python
+import numpy as np
+from pyread_swift import SwiftSnapshot
+
+snapshot = "/path/to/snap/part.0.hdf5"
+swift = SwiftSnapshot(snapshot)
+
+parttype = 1  # Dark matter
+centre = [50.0, 50.0, 50.0]
+
+# Full sphere: r_min=0, r_max=5 Mpc.
+swift.select_spherical_region(parttype, *centre, r_min=0.0, r_max=5.0)
+swift.split_selection()
+coords = swift.read_dataset(parttype, "Coordinates")
+
+# Post-hoc distance filter for an exact sphere (caller's responsibility).
+r2 = np.sum((coords - centre) ** 2, axis=1)
+coords = coords[r2 < 5.0 ** 2]
+```
+
+For a shell, pass a non-zero ``r_min``:
+
+```python
+swift.select_spherical_region(parttype, *centre, r_min=3.0, r_max=5.0)
+swift.split_selection()
+coords = swift.read_dataset(parttype, "Coordinates")
+
+r2 = np.sum((coords - centre) ** 2, axis=1)
+coords = coords[(r2 >= 3.0 ** 2) & (r2 < 5.0 ** 2)]
+```
+
+#### Parameters
+
+| Parameter | Description |
+| --------- | ----------- |
+| `part_type` | Particle type to select on |
+| `cx, cy, cz` | Centre of the sphere/shell |
+| `r_min` | Inner radius of the shell (use `0` for a full sphere) |
+| `r_max` | Outer radius of the shell |
 
 ## Lightcone particle reading
 

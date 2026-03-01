@@ -11,7 +11,7 @@ directly. If not, replace the path with the location of your Swift snapshot.
 parttype = 1
 
 # Initiate the SwiftSnapshot object
-swift = SwiftSnapshot("../tests/EAGLE_ICs_6.hdf5", verbose=True)
+swift = SwiftSnapshot("../tests/EagleSingle.hdf5", verbose=True)
 
 # See whats in the header.
 print(swift.header)

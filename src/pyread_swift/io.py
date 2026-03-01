@@ -2,7 +2,7 @@ import os
 
 from .read_dataset import read_dataset_collective, read_dataset_distributed
 from .read_header import read_header
-from .select_region import _get_filename, select_region
+from .select_region import _get_filename, select_region, select_spherical_region
 from .split_selection import split_selection_collective, split_selection_distributed
 
 
@@ -233,6 +233,58 @@ class SwiftSnapshot:
             y_max,
             z_min,
             z_max,
+        )
+
+        assert (
+            self.region_data["total_num_to_load"] > 0
+        ), "Found no particles in selected region"
+        self.params.region_selected_on = part_type
+
+    def select_spherical_region(self, part_type, cx, cy, cz, r_min, r_max):
+        """
+        Find the snapshot files and top level cells that contain particles
+        of a given type within a spherical shell region.
+
+        Selection is based off the position of the top level cells. Any top
+        level cells that overlap the shell [r_min, r_max] will be selected,
+        and their particles indexed for loading. Use r_min=0 for a full sphere.
+
+        Note: the selection is conservative — TL cells on the boundary of the
+        sphere will be included in full even if only partially inside. The
+        caller is responsible for filtering loaded particles by distance after
+        calling read_dataset().
+
+        Generates a "region_data" dict that stores the HDF5 array indexs to
+        load from each file. This is the same for all ranks, until
+        split_selection is called.
+
+        Parameters
+        ----------
+        part_type : int
+            Parttype to select on
+        cx/cy/cz : float
+            Centre of the sphere/shell
+        r_min : float
+            Inner radius of the shell (0 for a full sphere)
+        r_max : float
+            Outer radius of the shell
+        """
+
+        self.params.message(
+            "Selecting spherical region centre=(%.4f, %.4f, %.4f) r_min=%.4f r_max=%.4f PT=%i"
+            % (cx, cy, cz, r_min, r_max, part_type),
+            only_zero=True,
+        )
+
+        self.region_data = select_spherical_region(
+            self.params,
+            self.header,
+            part_type,
+            cx,
+            cy,
+            cz,
+            r_min,
+            r_max,
         )
 
         assert (

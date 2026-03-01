@@ -23,7 +23,7 @@ comm = MPI.COMM_WORLD
 parttype = 1
 
 # Initiate the SwiftSnapshot object
-swift = SwiftSnapshot("../tests/EAGLE_ICs_6.hdf5", verbose=True, comm=comm,
+swift = SwiftSnapshot("../tests/EagleSingle.hdf5", verbose=True, comm=comm,
         mpi_read_format="distributed")
 
 # See whats in the header.

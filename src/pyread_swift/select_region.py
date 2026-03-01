@@ -110,64 +110,103 @@ def _mask_selected_region(
     return mask
 
 
-def select_region(
-    params,
-    header,
-    part_type,
-    x_min,
-    x_max,
-    y_min,
-    y_max,
-    z_min,
-    z_max,
-):
+def _mask_selected_shell(params, cx, cy, cz, r_min, r_max, boxsize):
     """
-    Find the snapshot files and top level cells that contain particles
-    of a given type within a selected cuboidal region.
+    Find all the top level cells that overlap a spherical shell region.
 
-    Selection is based off the position of the top level cells. Any top
-    level cells that intercet the load region will be selected, and their
-    particles indexed for loading.
+    A cell is selected if it overlaps the outer sphere (r_max) and is not
+    entirely contained within the inner sphere (r_min). For a full sphere
+    pass r_min=0.
 
-    Generates a "region_data" dict that stores the HDF5 array indexs to
-    load from each file. This is the same for all ranks, until
-    split_selection is called.
+    If the Swift snapshot doesn't have any top level cell information, we will
+    not be able to select on a region, and will have to load all the particles.
 
     Parameters
     ----------
-        params : _SwiftSnapshotParams object
-                Contains the pyread_swift parameters
-        header : dict
-                Snapshot header information
+    params : _SwiftSnapshotParams object
+        Contains the pyread_swift parameters
+    cx/cy/cz : float
+        Centre of the sphere/shell
+    r_min : float
+        Inner radius of the shell (0 for a full sphere)
+    r_max : float
+        Outer radius of the shell
+    boxsize : float
+        Boxsize of simulation
+
+    Returns
+    -------
+    mask : ndarray
+        Mask of TL cells to load (same for all ranks)
+    """
+
+    mask = None
+
+    if params.comm_rank == 0:
+
+        with h5py.File(params.fname, "r") as f:
+
+            if "Cells" in f:
+                centres = f["/Cells/Centres"][...]
+                half_size = f["/Cells/Meta-data"].attrs["size"] / 2.0
+
+                query_centre = np.array([cx, cy, cz])
+
+                # Wrap cell centres relative to sphere centre (periodic BC).
+                centres = (
+                    np.mod(centres - query_centre + 0.5 * boxsize, boxsize)
+                    + query_centre
+                    - 0.5 * boxsize
+                )
+
+                delta = np.abs(centres - query_centre)
+
+                # Squared distance from sphere centre to nearest point on each cell.
+                # nearest point per axis = clamp(centre, cell_min, cell_max)
+                d2 = np.sum(np.maximum(0.0, delta - half_size) ** 2, axis=1)
+
+                # Squared distance from sphere centre to farthest point on each cell.
+                D2 = np.sum((delta + half_size) ** 2, axis=1)
+
+                # A cell overlaps the shell if it intersects the outer sphere
+                # and is not entirely inside the inner sphere.
+                overlaps_outer = d2 < r_max ** 2
+                fully_inside_inner = D2 <= r_min ** 2
+
+                mask = np.where(overlaps_outer & ~fully_inside_inner)[0]
+
+    if params.comm_size > 1:
+        mask = params.comm.bcast(mask)
+
+    return mask
+
+
+def _build_region_data(params, header, part_type, mask):
+    """
+    Build the region_data dict from a top-level cell mask.
+
+    Given a mask of TL cell indices (or None if no cell information exists),
+    reads the per-cell offsets/counts/files and merges contiguous cells into
+    the minimum number of HDF5 slice reads.
+
+    Parameters
+    ----------
+    params : _SwiftSnapshotParams object
+        Contains the pyread_swift parameters
+    header : dict
+        Snapshot header information
     part_type : int
         Parttype to select on
-    x_min/x_max : float
-        Minimum and maximum bounds in x-dim to select
-    y_min/y_max : float
-        Minimum and maximum bounds in y-dim to select
-    z_min/z_max : float
-        Minimum and maximum bounds in z-dim to select
+    mask : ndarray or None
+        Indices of TL cells to load. None means no cell info; load everything.
 
-        Returns
-        -------
-        region_data : dict
+    Returns
+    -------
+    region_data : dict
         Stores the particle index information for each file (which particles to
         load for the selected region)
     """
 
-    # Get the TL cells to load.
-    mask = _mask_selected_region(
-        params,
-        x_min,
-        x_max,
-        y_min,
-        y_max,
-        z_min,
-        z_max,
-        header["BoxSize"],
-    )
-
-    # Output dict.
     region_data = {}
 
     # ---------------------------------------------------
@@ -254,16 +293,16 @@ def select_region(
                 files = f["Cells/Files/PartType%i" % part_type][mask]
 
             # Only interested in cells with at least 1 particle.
-            mask = np.where(counts > 0)
-            offsets = offsets[mask]
-            counts = counts[mask]
-            files = files[mask]
+            keep = np.where(counts > 0)
+            offsets = offsets[keep]
+            counts = counts[keep]
+            files = files[keep]
 
             # Sort by file number then by offsets.
-            mask = np.lexsort((offsets, files))
-            offsets = offsets[mask]
-            counts = counts[mask]
-            files = files[mask]
+            sort_mask = np.lexsort((offsets, files))
+            offsets = offsets[sort_mask]
+            counts = counts[sort_mask]
+            files = files[sort_mask]
 
             # Case of one cell.
             if len(offsets) == 1:
@@ -320,3 +359,123 @@ def select_region(
             region_data = params.comm.bcast(region_data)
 
     return region_data
+
+
+def select_region(
+    params,
+    header,
+    part_type,
+    x_min,
+    x_max,
+    y_min,
+    y_max,
+    z_min,
+    z_max,
+):
+    """
+    Find the snapshot files and top level cells that contain particles
+    of a given type within a selected cuboidal region.
+
+    Selection is based off the position of the top level cells. Any top
+    level cells that intercet the load region will be selected, and their
+    particles indexed for loading.
+
+    Generates a "region_data" dict that stores the HDF5 array indexs to
+    load from each file. This is the same for all ranks, until
+    split_selection is called.
+
+    Parameters
+    ----------
+        params : _SwiftSnapshotParams object
+                Contains the pyread_swift parameters
+        header : dict
+                Snapshot header information
+    part_type : int
+        Parttype to select on
+    x_min/x_max : float
+        Minimum and maximum bounds in x-dim to select
+    y_min/y_max : float
+        Minimum and maximum bounds in y-dim to select
+    z_min/z_max : float
+        Minimum and maximum bounds in z-dim to select
+
+        Returns
+        -------
+        region_data : dict
+        Stores the particle index information for each file (which particles to
+        load for the selected region)
+    """
+
+    mask = _mask_selected_region(
+        params,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        z_min,
+        z_max,
+        header["BoxSize"],
+    )
+
+    return _build_region_data(params, header, part_type, mask)
+
+
+def select_spherical_region(
+    params,
+    header,
+    part_type,
+    cx,
+    cy,
+    cz,
+    r_min,
+    r_max,
+):
+    """
+    Find the snapshot files and top level cells that contain particles
+    of a given type within a spherical shell region.
+
+    Selection is based off the position of the top level cells. Any top
+    level cells that overlap the shell [r_min, r_max] will be selected,
+    and their particles indexed for loading. Use r_min=0 for a full sphere.
+
+    Note: the selection is conservative — TL cells on the boundary of the
+    sphere will be included in full even if only partially inside. The
+    caller is responsible for filtering loaded particles by distance.
+
+    Generates a "region_data" dict that stores the HDF5 array indexs to
+    load from each file. This is the same for all ranks, until
+    split_selection is called.
+
+    Parameters
+    ----------
+    params : _SwiftSnapshotParams object
+        Contains the pyread_swift parameters
+    header : dict
+        Snapshot header information
+    part_type : int
+        Parttype to select on
+    cx/cy/cz : float
+        Centre of the sphere/shell
+    r_min : float
+        Inner radius of the shell (0 for a full sphere)
+    r_max : float
+        Outer radius of the shell
+
+    Returns
+    -------
+    region_data : dict
+        Stores the particle index information for each file (which particles to
+        load for the selected region)
+    """
+
+    mask = _mask_selected_shell(
+        params,
+        cx,
+        cy,
+        cz,
+        r_min,
+        r_max,
+        header["BoxSize"],
+    )
+
+    return _build_region_data(params, header, part_type, mask)

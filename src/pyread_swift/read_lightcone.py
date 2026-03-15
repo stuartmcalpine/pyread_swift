@@ -160,12 +160,7 @@ class SwiftParticleLightcone:
         total_particles = 0
         data_shape = None
 
-        nr_files = self.header.get("nr_mpi_ranks", 0)
-        if nr_files == 0:
-            self.logger.warning(
-                "Header does not contain 'nr_mpi_ranks', cannot determine file count"
-            )
-            return np.array([])
+        nr_files = len(self.lightcone_files)
 
         for i, lightcone_file in enumerate(self.lightcone_files):
             # Assign each file to a specific rank using a deterministic pattern
